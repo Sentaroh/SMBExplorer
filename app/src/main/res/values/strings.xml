@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="hello">SMBExplorerActivity!</string>
+    <string name="app_name">SMBExplorer</string>
+    <string name="app_video_name">VideoPlayer</string>
+
+</resources>

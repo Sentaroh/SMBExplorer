@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/file_list_view"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="horizontal"
+    android:layout_marginLeft="5dp"
+    android:layout_marginRight="5dp"
+    tools:ignore="SpUsage,ContentDescription,NestedWeights" >
+
+    <ImageView
+        android:id="@+id/file_list_icon"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="5dp"
+        android:layout_gravity="center_vertical"
+        android:gravity="center" />
+
+	<com.sentaroh.android.Utilities3.Widget.NonWordwrapTextView
+		android:id="@+id/file_list_name"
+		android:layout_width="0dp"
+		android:layout_weight="1"
+		android:layout_height="wrap_content"
+		android:text="name"
+		android:layout_gravity="center_vertical"
+		android:textAppearance="?android:attr/textAppearanceSmall" />
+
+	<LinearLayout
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginLeft="5dp"
+		android:layout_gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/file_list_count"
+            android:layout_width="90dp"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="3dp"
+            android:text="5 item"
+            android:textAppearance="?android:attr/textAppearanceSmall"/>
+        <TextView
+            android:id="@+id/file_list_size"
+            android:layout_width="70dp"
+            android:layout_height="wrap_content"
+            android:text="size"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/file_list_select_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+		android:layout_gravity="center_vertical"
+        android:orientation="horizontal" >
+        <LinearLayout
+	        android:layout_width="wrap_content"
+	        android:layout_height="wrap_content"
+	        android:layout_marginRight="5dp"
+	        android:orientation="vertical" >
+
+            <TextView
+                android:id="@+id/file_list_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="date"
+                android:textAppearance="?android:attr/textAppearanceSmall"/>
+	
+	        <TextView
+	            android:id="@+id/file_list_time"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:text="time"
+                android:textAppearance="?android:attr/textAppearanceSmall"/>
+	    </LinearLayout>
+	
+	    <CheckBox
+	        android:id="@+id/file_list_checkbox"
+	        android:layout_width="40dp"
+	        android:layout_height="40dp"
+	        android:layout_gravity="center_vertical"
+	        android:focusable="false"
+	        android:focusableInTouchMode="false"
+	        android:text="" />
+	
+	    <RadioButton
+	        android:id="@+id/file_list_radiobtn"
+	        android:layout_width="40dp"
+	        android:layout_height="40dp"
+	        android:layout_gravity="center_horizontal|center_vertical"
+	        android:layout_marginLeft="5dp"
+	        android:focusable="false"
+	        android:focusableInTouchMode="false"
+	        android:text="" />
+        
+	</LinearLayout>        
+    
+</LinearLayout>

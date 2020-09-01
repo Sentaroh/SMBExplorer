@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/explorer_filelist_remote_tab"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" xmlns:tools="http://schemas.android.com/tools" tools:ignore="HardcodedText">
+
+
+    <Spinner
+         android:id="@+id/explorer_filelist_remote_tab_dir"
+         style="@android:style/Widget.Spinner"
+         android:layout_width="fill_parent"
+         android:layout_height="wrap_content"
+         android:background="@drawable/spinner_color_background"
+         android:gravity="left"
+         android:layout_marginTop="2dp"
+         android:minHeight="40dp"
+         android:paddingLeft="5dp"
+         android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <include layout="@layout/divider_line1" />
+
+    <RelativeLayout
+         android:layout_width="fill_parent"
+         android:layout_height="0dp"
+         android:layout_weight="1"
+         android:orientation="vertical" >
+
+         <LinearLayout
+             android:id="@+id/explorer_filelist_remote_progress"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:visibility="gone" >
+
+	        <ProgressBar
+	             android:id="@+id/explorer_filelist_remote_progress_spin"
+	             android:layout_width="wrap_content"
+	             android:layout_height="wrap_content"
+	             android:layout_gravity="center_vertical"
+	             android:layout_marginLeft="5dp" />
+		 	<com.sentaroh.android.Utilities3.Widget.NonWordwrapTextView
+	            android:id="@+id/explorer_filelist_remote_progress_msg"
+	            android:layout_width="0dp"
+	            android:layout_weight="1"
+	            android:layout_gravity="center_vertical"
+	            android:layout_height="wrap_content"
+	            android:maxLines="8"
+	            android:gravity="center_vertical"
+	            android:textAppearance="?android:attr/textAppearanceMedium"/>
+	        <Button
+	            android:id="@+id/explorer_filelist_remote_progress_cancel"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:text="Cancel"
+	            android:layout_gravity="center_vertical"
+	            android:textAppearance="?android:attr/textAppearanceMedium"/>
+		 </LinearLayout>
+		 <LinearLayout
+		        android:id="@+id/explorer_filelist_remote_dialog"
+		        android:layout_width="fill_parent"
+		        android:layout_height="wrap_content"
+		        android:orientation="vertical"
+		        android:visibility="gone" >
+
+			    <ScrollView
+			        android:layout_width="match_parent"
+			        android:layout_height="0dp"
+		            android:layout_weight="1">
+			
+			        <TextView
+			            android:id="@+id/explorer_filelist_remote_dialog_msg"
+			            android:layout_width="fill_parent"
+			            android:layout_height="wrap_content"
+			            android:textAppearance="?android:attr/textAppearanceMedium" />
+			        
+			    </ScrollView>
+		        <Button
+		            android:id="@+id/explorer_filelist_remote_dialog_close"
+		            android:layout_width="fill_parent"
+		            android:layout_height="wrap_content"
+		            android:layout_gravity="center_vertical"
+		            android:text="Close"
+		            android:textAppearance="?android:attr/textAppearanceMedium" />
+		 </LinearLayout>
+         		 
+        <LinearLayout
+            android:id="@+id/explorer_filelist_remote_filelist"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:orientation="vertical">
+	        <LinearLayout
+	            android:layout_width="fill_parent"
+	            android:layout_height="wrap_content"
+	            android:orientation="horizontal">
+
+	            <Button
+	                android:id="@+id/explorer_filelist_remote_top_btn"
+	                android:layout_width="wrap_content"
+	                android:layout_height="wrap_content"
+	                android:text="Top" 
+	                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+	            <com.sentaroh.android.Utilities3.Widget.NonWordwrapTextView
+	                android:id="@+id/explorer_filelist_remote_filepath"
+	                android:layout_width="0dp"
+	                android:layout_height="wrap_content"
+	                android:layout_gravity="center_vertical"
+	                android:layout_weight="1"
+	                android:ellipsize="start"
+	                android:gravity="center_vertical"
+	                android:text=""
+	                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+	            <Button
+	                android:id="@+id/explorer_filelist_remote_up_btn"
+	                android:layout_width="wrap_content"
+	                android:layout_height="wrap_content"
+	                android:text="Up" 
+	                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+	        </LinearLayout>
+            <TextView
+                android:id="@+id/explorer_filelist_remote_empty_view"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:gravity="center"
+                android:text="Folder is empty"
+                android:textAppearance="?android:attr/textAppearanceLarge" />
+	        
+	        <ListView
+	            android:id="@+id/explorer_filelist_remote_tab_listview"
+	            android:layout_width="fill_parent"
+	            android:layout_height="0dp"
+	            android:layout_weight="1"
+	            android:fadeScrollbars="false" />
+            
+        </LinearLayout>
+         		                 
+	</RelativeLayout>
+
+    <include layout="@layout/context_view_file"/>
+
+</LinearLayout>

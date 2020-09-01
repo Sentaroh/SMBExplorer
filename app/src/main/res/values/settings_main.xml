@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_main_title">Settings</string>
+
+    <string name="settings_default_current_setting">current settings=</string>
+
+    <string name="settings_other_title">Other</string>
+    
+    <string name="settings_exit_clean_title">Exit cleanly</string>
+    <string name="settings_exit_clean_summary_dis">Do not kill application process</string>
+    <string name="settings_exit_clean_summary_ena">Kill application process after application cleanup</string>
+	<string name="settings_exit_clean">settings_exit_clean</string>
+
+    <string name="settings_misc_title">Miscellaneous</string>
+    
+</resources>

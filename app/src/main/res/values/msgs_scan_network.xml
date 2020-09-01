@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="msgs_scan_network_smb_use_port_number">Use port number</string>
+    <string name="msgs_scan_network_smb_use_account_password">Use Account/Password</string>
+    <string name="msgs_scan_network_smb_title">Scan SMB server</string>
+
+    <string name="msgs_scan_network_smb_scan_btn">Scan</string>
+    <string name="msgs_scan_network_smb_press_scan">Specify IP adrress and press scan button.</string>
+    <string name="msgs_scan_network_smb_server_not_detected">SMB server can not be found</string>
+    <string name="msgs_scan_network_smb_select_detected_server">Please tap the hostname or IP address for SMB server choice.</string>
+    <string name="msgs_scan_network_smb_server_scan_result_title">Scan result</string>
+    <string name="msgs_scan_netowrk_smb_server_scan_progress">Network scan is %s%% Completed</string>
+
+</resources>

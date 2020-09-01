@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE layout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    tools:ignore="ButtonStyle" >
+    <Button
+        android:id="@+id/file_rename_create_dlg_cancel_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.50"
+        android:text="@string/msgs_dlg_cancel_btn" 
+        android:textAppearance="?android:attr/textAppearanceLarge"/>
+    <Button
+        android:id="@+id/file_rename_create_dlg_ok_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.46"
+        android:text="@string/msgs_dlg_ok_btn" 
+        android:textAppearance="?android:attr/textAppearanceLarge"/>
+    
+</LinearLayout>

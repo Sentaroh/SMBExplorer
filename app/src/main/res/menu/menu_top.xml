@@ -1,0 +1,37 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:appv7="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/menu_top_refresh"
+        android:title="Refresh"
+        android:icon="@drawable/ic_32_refresh"
+        appv7:showAsAction="always"/>
+    <item android:id="@+id/menu_top_quit"
+        android:title="Quit"
+        android:icon="@drawable/ic_32_close_gray"
+        appv7:showAsAction="always"/>
+    <item
+        android:id="@+id/menu_top_edit_smb_server"
+        android:icon="@drawable/ic_32_server"
+        android:title="Edit SMB server"
+         />
+	<item android:id="@+id/menu_top_settings"
+          android:title="Settings"
+          android:icon="@android:drawable/ic_menu_preferences"
+          />
+    <item android:id="@+id/menu_top_log_management"
+        android:title="Manage log option and files"
+        />
+
+    <item android:id="@+id/menu_top_export"
+          android:title="Export profile" 
+          />
+	<item android:id="@+id/menu_top_import"
+          android:title="Import profile" 
+          android:icon="@drawable/ic_menu_open"
+         />
+    <item android:id="@+id/menu_top_request_storage_permission"
+        android:title="Request Storage Permission"
+        />
+    <item android:id="@+id/menu_top_show_all_file_access_permission"
+        android:title="Request All File Access Permission"
+        />
+</menu>

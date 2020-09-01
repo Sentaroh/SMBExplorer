@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+    
+    <TextView
+        android:id="@+id/select_file_cache_dlg_title"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dp"
+        android:gravity="center"
+        android:textAppearance="?android:attr/textAppearanceLarge" />
+
+	<include layout="@layout/divider_line1_turquoise" />
+    
+    <TextView
+        android:id="@+id/select_file_cache_dlg_msg"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dp"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="#ff0000"
+        android:visibility="gone" />
+
+    <include layout="@layout/divider_line1" />
+
+    <ListView
+        android:id="@+id/select_file_cache_dlg_listview"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fadeScrollbars="false"/>
+
+    <include layout="@layout/divider_line1" />
+
+    <include layout="@layout/select_file_cache_dlg_ok_cancel"/>
+    
+</LinearLayout>

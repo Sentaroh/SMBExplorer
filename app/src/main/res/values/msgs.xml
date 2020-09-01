@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="msgs_progress_spin_dlg_cancel">Cancel</string>
+    <string name="msgs_progress_spin_dlg_check_file_exists_title">Retrieving the file list.</string>
+
+   	<string name="msgs_delete_file_dirs_confirm">Delete following dirs/files?</string>
+   	<string name="msgs_local_file_list_create_error">Error occurred during local file list creation.</string>
+	<string name="msgs_local_file_list_create_file_not_found">Specified file %s was not found.</string>
+    <string name="msgs_remote_file_list_create_error">Error occurred during remote file list creation.</string>
+    <string name="msgs_terminate_confirm">Terminate application.</string>
+   	<string name="msgs_select_import_dlg_success">Import was successful</string>
+  	<string name="msgs_select_export_dlg_success">Export was successful</string>
+   	<string name="msgs_select_export_dlg_override">Overwrite the %s ?</string>
+   	<string name="msgs_exception">An exception occurred.</string>
+
+   	<string name="msgs_dlg_ok_btn">OK</string>
+    <string name="msgs_dlg_cancel_btn">Cancel</string>
+    
+   	<string name="msgs_progress_dlg_canceling">Canceling</string>
+
+   	<string name="msgs_ip_address_range_dlg_begin_notspecified">Begin address is not specified.</string>
+   	<string name="msgs_ip_address_range_dlg_addr_range_error">Address range is must be 0 to 255.</string>
+   	<string name="msgs_ip_address_range_dlg_begin_range_error">Begin address range is must be 1 to 254.</string>
+   	<string name="msgs_ip_address_range_dlg_end_notspecified">End address is not specified.</string>
+   	<string name="msgs_ip_address_range_dlg_begin_addr_gt_end_addr">Begin address is greater than end address.</string>
+   	<string name="msgs_ip_address_range_dlg_end_range_error">End address range is must be 1 to 254.</string>
+   	<string name="msgs_ip_address_range_dlg_not_private">Global address is can not be scan.</string>
+   	
+    <string name="msgs_main_notification_title">SMBExplorer</string>
+    <string name="msgs_main_notification_message">File process is working in the background.</string>
+    <string name="msgs_main_notification_end_message">File process was ended in the background.</string>
+
+    <string name="msgs_storage_permission_title">Permission to use storage</string>
+
+</resources>
