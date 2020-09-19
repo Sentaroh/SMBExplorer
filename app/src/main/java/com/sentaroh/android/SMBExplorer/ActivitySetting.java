@@ -43,7 +43,7 @@ public class ActivitySetting extends PreferenceActivity {
 
     private static ActivitySetting mPrefActivity=null;
 
-    private static GlobalParameters mGp=null;
+    private static GlobalParameter mGp=null;
 
 //    private CommonUtilities mUtil=null;
 

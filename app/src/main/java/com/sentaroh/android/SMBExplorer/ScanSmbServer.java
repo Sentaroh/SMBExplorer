@@ -71,13 +71,13 @@ public class ScanSmbServer {
 
     private ActivityMain mActivity =null;
     private Context mContext = null;
-    private GlobalParameters mGp=null;
+    private GlobalParameter mGp=null;
     private CommonUtilities mUtil=null;
 
     private static final Logger log = LoggerFactory.getLogger(ScanSmbServer.class);
 
     private int mSmbLevel = JcifsAuth.JCIFS_FILE_SMB211;
-    public ScanSmbServer(ActivityMain a, GlobalParameters gp, String smb_level) {
+    public ScanSmbServer(ActivityMain a, GlobalParameter gp, String smb_level) {
         mActivity=a;
         mContext=gp.context;
         mGp=gp;

@@ -25,16 +25,16 @@ OTHER DEALINGS IN THE SOFTWARE.
 import android.content.Context;
 
 public class GlobalWorkArea {
-    static private GlobalParameters gp=null;
-    static public GlobalParameters getGlobalParameters(Context c) {
+    static private GlobalParameter gp=null;
+    static public GlobalParameter getGlobalParameters(Context c) {
         if (gp ==null) {
-            gp =new GlobalParameters();
+            gp =new GlobalParameter();
             gp.initGlobalParameter(c);
         }
         return gp;
     }
 
-    static public GlobalParameters getAllocatedGlobalParameters() {
+    static public GlobalParameter getAllocatedGlobalParameters() {
         return gp;
     }
 }

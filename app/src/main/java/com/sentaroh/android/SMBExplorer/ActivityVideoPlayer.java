@@ -84,7 +84,7 @@ public class ActivityVideoPlayer extends FragmentActivity {
     @SuppressWarnings("unused")
 	private boolean mApplicationTerminated=false;
 
-    private GlobalParameters mGp=null;
+    private GlobalParameter mGp=null;
     
     private Handler mUiHandler=null;
     

@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class SmbServerEditor {
-    private GlobalParameters mGp;
+    private GlobalParameter mGp;
     private ActivityMain mActivity;
     private Context mContext;
     private SmbServerConfig mSmbServerConfigitem;
@@ -56,7 +56,7 @@ public class SmbServerEditor {
     private Dialog mDialog;
     private String mOpCode;
 
-    public SmbServerEditor(String op, ActivityMain a, GlobalParameters gp, SmbServerConfig item, NotifyEvent ntfy) {
+    public SmbServerEditor(String op, ActivityMain a, GlobalParameter gp, SmbServerConfig item, NotifyEvent ntfy) {
         mGp=gp;
         mActivity=a;
         mContext=gp.context;

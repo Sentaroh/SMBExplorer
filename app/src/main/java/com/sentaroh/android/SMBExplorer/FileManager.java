@@ -69,6 +69,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,7 +99,7 @@ import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_REMOTE;
 
 public class FileManager {
     private static Logger log= LoggerFactory.getLogger(FileManager.class);
-    private GlobalParameters mGp;
+    private GlobalParameter mGp;
     private Context mContext;
     private ActivityMain mActivity;
     private CommonUtilities mUtil=null;
@@ -106,7 +107,7 @@ public class FileManager {
     private boolean mSpinnerSelectionEnabled =true;
     private Handler mUiHandler=null;
 
-    public FileManager(ActivityMain a, GlobalParameters gp, CommonUtilities mu, CustomContextMenu cc) {
+    public FileManager(ActivityMain a, GlobalParameter gp, CommonUtilities mu, CustomContextMenu cc) {
         mActivity=a;
         mGp=gp;
         mContext=gp.context;
@@ -809,7 +810,7 @@ public class FileManager {
         }
     }
 
-    static public void setRemoteTabEnabled(GlobalParameters mGp) {
+    static public void setRemoteTabEnabled(GlobalParameter mGp) {
         String ia=CommonUtilities.getIfIpAddress("wlan0");
         String et=CommonUtilities.getIfIpAddress("eth0");
         if (ia.equals("")) ia=et;
@@ -3258,5 +3259,10 @@ public class FileManager {
 
         }
         return fi;
+    }
+
+    public static class MountPointHistoryItem implements Serializable {
+        public String mp_name="";
+        public ArrayList<DirectoryHistoryItem> directory_history=new ArrayList<DirectoryHistoryItem>();
     }
 }

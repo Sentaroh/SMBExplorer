@@ -37,7 +37,7 @@ public class MainReceiver extends BroadcastReceiver {
 
     private static Context mContext = null;
 
-    private static GlobalParameters mGp = null;
+    private static GlobalParameter mGp = null;
 
     private static LogUtil mLog = null;
 

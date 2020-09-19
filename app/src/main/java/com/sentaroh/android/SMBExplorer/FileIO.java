@@ -75,13 +75,13 @@ public class FileIO extends Thread {
 	private int file_op_cd;
 	private Context mContext=null;
 	private Handler uiHandler = new Handler() ;
-	private GlobalParameters mGp=null;
+	private GlobalParameter mGp=null;
 	private final static String mAppPackageName="com.sentaroh.android.SMBExplorer";
 	private LogUtil mLogUtil=null;
 	
 	// @Override
-	public FileIO(GlobalParameters gp, int op_cd,
-				  ArrayList<FileIoLinkParm> alp, ThreadCtrl tc, NotifyEvent ne, Context cc, String lmp) {
+	public FileIO(GlobalParameter gp, int op_cd,
+                  ArrayList<FileIoLinkParm> alp, ThreadCtrl tc, NotifyEvent ne, Context cc, String lmp) {
 		
 		mGp=GlobalWorkArea.getGlobalParameters(cc);
 		fileioThreadCtrl=tc;
@@ -339,7 +339,9 @@ public class FileIO extends Thread {
     	try {
 			document=new SafFile3(mContext, oldUrl);
 			SafFile3 new_file=new SafFile3(mContext, newUrl);
-			result=document.renameTo(new_file);
+//			result=document.renameTo(new_file);
+			result=renameSafFile(document, new_file);
+			scanMediaStoreLibraryFile(new_file.getPath());
         } catch(Exception e) {
     	    e.printStackTrace();
         }
@@ -352,7 +354,17 @@ public class FileIO extends Thread {
     	return result;
     }
 
-    private boolean deleteLocalItem(SafFile3 rt, String url) {
+	public static boolean renameSafFile(SafFile3 from, SafFile3 to) {
+		boolean result=from.renameTo(to);
+		if (!from.getPath().startsWith(SafFile3.SAF_FILE_PRIMARY_STORAGE_PREFIX)) {
+			if (!result && !from.exists() && to.exists()) {
+				result=true;
+			}
+		}
+		return result;
+	}
+
+	private boolean deleteLocalItem(SafFile3 rt, String url) {
     	boolean result = false;
     	if (!fileioThreadCtrl.isEnabled()) return false;
     	sendDebugLogMsg(1,"I","Delete local file entered, File=",url);
@@ -363,6 +375,7 @@ public class FileIO extends Thread {
             try {
                 client = mContext.getContentResolver().acquireContentProviderClient(usf.getUri().getAuthority());
                 result = deleteSafFile(usf, client);
+				scanMediaStoreLibraryFile(url);
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -671,8 +684,9 @@ public class FileIO extends Thread {
                     result=false;
                 } else {
                     to_saf.deleteIfExists();
-                    result=temp_out.renameTo(to_saf);
-                    if (move && result) result=from_saf.delete();
+					result=renameSafFile(temp_out, to_saf);
+					if (move && result) result=from_saf.delete();
+					scanMediaStoreLibraryFile(from_saf.getPath());
                 }
             }
         } catch(Exception e) {
@@ -715,8 +729,9 @@ public class FileIO extends Thread {
                     result=false;
                 } else {
                     to_saf.deleteIfExists();
-                    result=temp_out.renameTo(to_saf);
+					result=renameSafFile(temp_out, to_saf);
                     if (move && result) from_jcifs.delete();
+					scanMediaStoreLibraryFile(to_saf.getPath());
                 }
             }
         } catch(Exception e) {

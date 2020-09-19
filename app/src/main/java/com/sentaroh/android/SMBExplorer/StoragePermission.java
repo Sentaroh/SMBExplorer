@@ -24,7 +24,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 import android.app.Dialog;
 import android.content.Context;
-import android.os.Build;
 import android.util.SparseBooleanArray;
 import android.view.View;
 import android.view.Window;
@@ -44,13 +43,13 @@ public class StoragePermission {
 
     private Context mContext=null;
     private ActivityMain mActivity=null;
-    private GlobalParameters mGp=null;
+    private GlobalParameter mGp=null;
     private CommonUtilities mUtil=null;
     private CommonDialog commonDlg=null;
     
     private Dialog mDialog=null;
     
-    public StoragePermission(ActivityMain a, GlobalParameters gp) {
+    public StoragePermission(ActivityMain a, GlobalParameter gp) {
         mContext = gp.context;
         mActivity = a;
         mGp = gp;

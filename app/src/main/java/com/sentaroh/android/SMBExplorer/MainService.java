@@ -51,7 +51,7 @@ import java.util.ArrayList;
 import static com.sentaroh.android.SMBExplorer.Constants.SERVICE_HEART_BEAT;
 
 public class MainService extends Service {
-    private GlobalParameters mGp=null;
+    private GlobalParameter mGp=null;
 
     private CommonUtilities mUtil=null;
 

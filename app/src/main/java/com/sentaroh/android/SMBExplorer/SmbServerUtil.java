@@ -58,6 +58,7 @@ import java.util.Collections;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -82,7 +83,7 @@ public class SmbServerUtil {
         return result;
     }
 
-    static public void saveSmbServerConfigList(Context c, GlobalParameters gp) {
+    static public void saveSmbServerConfigList(Context c, GlobalParameter gp) {
         saveSmbServerConfigList(c, gp, false, null);
     }
 
@@ -102,7 +103,7 @@ public class SmbServerUtil {
     private static final String CONFIG_TAG_SERVER_SMB_OPTION_IPC_SIGN_ENFORCE ="smb_option_ipc_sign_enforce";
     private static final String CONFIG_TAG_SERVER_SMB_OPTION_USE_SMB2_NEGOTIATION ="smb_option_use_smb2_negotiation";
 
-    static public ArrayList<SmbServerConfig> createSmbServerConfigList(Context c, GlobalParameters gp, boolean sdcard, final Uri file_uri) {
+    static public ArrayList<SmbServerConfig> createSmbServerConfigList(Context c, GlobalParameter gp, boolean sdcard, final Uri file_uri) {
 
         ArrayList<SmbServerConfig> rem = new ArrayList<SmbServerConfig>();
         boolean init_smb_list=false;
@@ -189,7 +190,7 @@ public class SmbServerUtil {
         return rem;
     }
 
-    static private SmbServerConfig createSmbServerConfigItemFromXmlTag(GlobalParameters gp, XmlPullParser xpp, EncryptUtilV3.CipherParms cp_int) {
+    static private SmbServerConfig createSmbServerConfigItemFromXmlTag(GlobalParameter gp, XmlPullParser xpp, EncryptUtilV3.CipherParms cp_int) {
         SmbServerConfig smb_item=new SmbServerConfig();
         int ac=xpp.getAttributeCount();
         for(int i=0;i<ac;i++) {
@@ -226,7 +227,7 @@ public class SmbServerUtil {
         return smb_item;
     }
 
-    static public void saveSmbServerConfigList(Context c, GlobalParameters gp, boolean sdcard, final Uri file_uri) {
+    static public void saveSmbServerConfigList(Context c, GlobalParameter gp, boolean sdcard, final Uri file_uri) {
         PrintWriter pw;
         BufferedWriter bw = null;
         try {
@@ -288,6 +289,10 @@ public class SmbServerUtil {
 
                     TransformerFactory tffactory = TransformerFactory.newInstance();
                     Transformer transformer = tffactory.newTransformer();
+                    transformer.setOutputProperty(OutputKeys.METHOD, "xml");
+                    transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+                    transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount","5");
+
                     StringWriter sw=new StringWriter();
                     transformer.transform(new DOMSource(main_document), new StreamResult(sw));
                     sw.flush();
@@ -320,7 +325,7 @@ public class SmbServerUtil {
         }
     }
 
-    static public void importSmbServerConfigDlg(ActivityMain activity, GlobalParameters gp, final String curr_dir, String file_name) {
+    static public void importSmbServerConfigDlg(ActivityMain activity, GlobalParameter gp, final String curr_dir, String file_name) {
 
         gp.mUtil.addDebugMsg(1,"I","Import profile dlg.");
 
@@ -353,7 +358,7 @@ public class SmbServerUtil {
 //        gp.commonDlg.fileSelectorFileOnlyWithCreate(true, curr_dir, "/SMBExplorer",file_name,"Select import file.",ne);
     }
 
-    static public void exportSmbServerConfigListDlg(ActivityMain activity, GlobalParameters gp, final String curr_dir, final String ifn) {
+    static public void exportSmbServerConfigListDlg(ActivityMain activity, GlobalParameter gp, final String curr_dir, final String ifn) {
         gp.mUtil.addDebugMsg(1,"I","Export profile.");
 
         NotifyEvent ne=new NotifyEvent(gp.context);
@@ -376,7 +381,7 @@ public class SmbServerUtil {
 //        gp.commonDlg.fileSelectorFileOnlyWithCreate(true, curr_dir, "/SMBExplorer",ifn,"Select export file.",ne);
     }
 
-    static public void writeSmbServerConfigList(Context c, GlobalParameters gp, final Uri file_uri) {
+    static public void writeSmbServerConfigList(Context c, GlobalParameter gp, final Uri file_uri) {
         gp.mUtil.addDebugMsg(1,"I","Export profile to file");
 
         SafFile3 lf = new SafFile3(c, file_uri);
@@ -406,7 +411,7 @@ public class SmbServerUtil {
         }
     }
 
-    static public void createSmbServerFileList(ActivityMain activity, GlobalParameters gp, String opcd,
+    static public void createSmbServerFileList(ActivityMain activity, GlobalParameter gp, String opcd,
                                                String url, SmbServerConfig sc, final NotifyEvent n_event) {
         final ArrayList<FileListItem> remoteFileList=new ArrayList<FileListItem>();
 
@@ -456,7 +461,7 @@ public class SmbServerUtil {
         pi_dialog.show();
     }
 
-    static public void updateSmbShareSpinner(GlobalParameters gp) {
+    static public void updateSmbShareSpinner(GlobalParameter gp) {
         final CustomSpinnerAdapter spAdapter = (CustomSpinnerAdapter)gp.remoteFileListDirSpinner.getAdapter();
         int sel_no=gp.remoteFileListDirSpinner.getSelectedItemPosition();
         if (spAdapter.getItem(0).startsWith("---")) {
@@ -471,7 +476,7 @@ public class SmbServerUtil {
         }
     }
 
-    static public void replaceCurrentSmbServerConfig(GlobalParameters gp) {
+    static public void replaceCurrentSmbServerConfig(GlobalParameter gp) {
         if (gp.currentSmbServerConfig==null) return;
         for(SmbServerConfig item:gp.smbConfigList) {
             if (item.getName().equals(gp.currentSmbServerConfig.getName())) {

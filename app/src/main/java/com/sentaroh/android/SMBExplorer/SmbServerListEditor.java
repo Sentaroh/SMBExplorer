@@ -61,7 +61,7 @@ import static android.view.KeyEvent.KEYCODE_BACK;
 public class SmbServerListEditor {
     private CommonDialog commonDlg = null;
 
-    private GlobalParameters mGp = null;
+    private GlobalParameter mGp = null;
     private Context mContext = null;
     private ActivityMain mActivity = null;
     private CommonUtilities mUtil = null;
@@ -87,7 +87,7 @@ public class SmbServerListEditor {
 
     private ArrayList<SmbServerConfig> mSmbConfigList =new ArrayList<SmbServerConfig>();
 
-    public SmbServerListEditor(ActivityMain a, GlobalParameters gp) {
+    public SmbServerListEditor(ActivityMain a, GlobalParameter gp) {
         mContext = gp.context;
         mActivity = a;
         mGp = gp;

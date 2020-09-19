@@ -53,12 +53,12 @@ public final class CommonUtilities {
 
    	private LogUtil mLog=null;
    	
-   	private GlobalParameters mGp=null;
+   	private GlobalParameter mGp=null;
    	
    	@SuppressWarnings("unused")
 	private String mLogIdent="";
    	
-	public CommonUtilities(Context c, String li, GlobalParameters gp) {
+	public CommonUtilities(Context c, String li, GlobalParameter gp) {
 		mContext=c;// ContextはApplicationContext
 		mLog=new LogUtil(c, li);
 		mLogIdent=li;

@@ -54,14 +54,14 @@ public class RetrieveFileList extends Thread  {
 	
 	private JcifsAuth mJcifsAuth=null;
 	
-	private GlobalParameters mGp=null;
+	private GlobalParameter mGp=null;
 
 	private LogUtil mLog=null;
 
     private SmbServerConfig mSmbServerConfig=null;
 
 	private int mSmbLevel =JcifsAuth.JCIFS_FILE_SMB211;
-	public RetrieveFileList(GlobalParameters gp, ThreadCtrl ac, String ru, List<String> d_list, SmbServerConfig sc, NotifyEvent ne) {
+	public RetrieveFileList(GlobalParameter gp, ThreadCtrl ac, String ru, List<String> d_list, SmbServerConfig sc, NotifyEvent ne) {
 //		currContext=c;
 		mGp=gp;
 
@@ -90,8 +90,8 @@ public class RetrieveFileList extends Thread  {
 
     private String tuser=null,tpass="";
 
-    public RetrieveFileList(GlobalParameters gp,
-			ThreadCtrl ac, String opcd, String ru, ArrayList<FileListItem> fl, SmbServerConfig sc, NotifyEvent ne) {
+    public RetrieveFileList(GlobalParameter gp,
+                            ThreadCtrl ac, String opcd, String ru, ArrayList<FileListItem> fl, SmbServerConfig sc, NotifyEvent ne) {
 		mGp=gp;
 		remoteFileList=fl;
 

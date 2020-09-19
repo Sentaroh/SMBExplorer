@@ -24,7 +24,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -33,19 +32,14 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.StatFs;
 import android.os.storage.StorageManager;
 import android.provider.Settings;
-import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -61,16 +55,19 @@ import android.widget.ListView;
 import android.widget.TabHost;
 import android.widget.TabWidget;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.FileProvider;
 import androidx.viewpager.widget.ViewPager;
 
 import com.sentaroh.android.SMBExplorer.Log.LogManagementFragment;
-
+import com.sentaroh.android.SMBExplorer.FileManager.MountPointHistoryItem;
 import com.sentaroh.android.Utilities3.AppUncaughtExceptionHandler;
+import com.sentaroh.android.Utilities3.CallBackListener;
 import com.sentaroh.android.Utilities3.ContextMenu.CustomContextMenu;
 import com.sentaroh.android.Utilities3.Dialog.CommonDialog;
 import com.sentaroh.android.Utilities3.NotifyEvent;
@@ -78,11 +75,9 @@ import com.sentaroh.android.Utilities3.SafFile3;
 import com.sentaroh.android.Utilities3.SafManager3;
 import com.sentaroh.android.Utilities3.SystemInfo;
 import com.sentaroh.android.Utilities3.ThemeUtil;
-import com.sentaroh.android.Utilities3.Widget.CustomTabContentView;
 import com.sentaroh.android.Utilities3.Widget.CustomViewPager;
 import com.sentaroh.android.Utilities3.Widget.CustomViewPagerAdapter;
 
-import java.io.BufferedOutputStream;
 import java.io.Externalizable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -113,7 +108,7 @@ import static com.sentaroh.android.Utilities3.SafFile3.SAF_FILE_PRIMARY_UUID;
 public class ActivityMain extends AppCompatActivity {
 	private final static String DEBUG_TAG = "SMBExplorer";
 
-	private GlobalParameters mGp=null;
+	private GlobalParameter mGp=null;
     private CommonUtilities mUtil=null;
 	private boolean mIsApplicationTerminate = false;
 	private int restartStatus=0;
@@ -149,7 +144,7 @@ public class ActivityMain extends AppCompatActivity {
 //        StrictMode.setVmPolicy(builder.build());
         super.onCreate(savedInstanceState);
 
-		mContext=ActivityMain.this.getApplicationContext();
+		mContext=ActivityMain.this;
 		mActivity=ActivityMain.this;
         makeCacheDirectory();
 
@@ -679,7 +674,7 @@ public class ActivityMain extends AppCompatActivity {
         }
     }
 
-    private final int REQUEST_PERMISSIONS_WRITE_EXTERNAL_STORAGE = 1;
+//    private final int REQUEST_PERMISSIONS_WRITE_EXTERNAL_STORAGE = 1;
     private boolean mLegacyStoragePermissionInprocess=false;
     private void checkRequiredPermissions() {
         if (mLegacyStoragePermissionInprocess) return;
@@ -693,36 +688,41 @@ public class ActivityMain extends AppCompatActivity {
             );
             if (!isLegacyExternalStoragePermissionGranted()) {
                 mLegacyStoragePermissionInprocess=true;
-                NotifyEvent ntfy = new NotifyEvent(mContext);
-                ntfy.setListener(new NotifyEvent.NotifyEventListener() {
+                mGp.commonDlg.showCommonDialog(mContext, false, "W",
+                    mContext.getString(R.string.msgs_main_permission_external_storage_title),
+                    mContext.getString(R.string.msgs_main_permission_external_storage_request_msg), new CallBackListener(){
                     @Override
-                    public void positiveResponse(Context c, Object[] o) {
-                        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                                REQUEST_PERMISSIONS_WRITE_EXTERNAL_STORAGE);
-                    }
-
-                    @Override
-                    public void negativeResponse(Context c, Object[] o) {
-                        NotifyEvent ntfy_term = new NotifyEvent(mContext);
-                        ntfy_term.setListener(new NotifyEvent.NotifyEventListener() {
-                            @Override
-                            public void positiveResponse(Context c, Object[] o) {
-//                                isTaskTermination = true;
-                                finish();
-                            }
-
-                            @Override
-                            public void negativeResponse(Context c, Object[] o) {
-                            }
-                        });
-                        mGp.commonDlg.showCommonDialog(false, "W",
+                    public void onCallBack(Context c, boolean positive, Object[] o) {
+                        if (positive) {
+                            ActivityResultLauncher<String> request_permission =mActivity.registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                                if (isGranted) {
+                                    mLegacyStoragePermissionInprocess=false;
+                                    mFileMgr.setMainListener();
+                                } else {
+                                    mGp.commonDlg.showCommonDialog(mActivity, false, "W",
+                                        mContext.getString(R.string.msgs_main_permission_external_storage_title),
+                                        mContext.getString(R.string.msgs_main_permission_external_storage_denied_msg),
+                                        new CallBackListener(){
+                                        @Override
+                                        public void onCallBack(Context c, boolean positive, Object[] objects) {
+                                            if (positive) finish();
+                                        }
+                                    });
+                                }
+                            });
+                            request_permission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                        } else {
+                            mGp.commonDlg.showCommonDialog(mContext, false, "W",
                                 mContext.getString(R.string.msgs_main_permission_external_storage_title),
-                                mContext.getString(R.string.msgs_main_permission_external_storage_denied_msg), ntfy_term);
+                                mContext.getString(R.string.msgs_main_permission_external_storage_denied_msg), new CallBackListener(){
+                                @Override
+                                public void onCallBack(Context c, boolean positive, Object[] o) {
+                                    if (positive) finish();
+                                }
+                            });
+                        }
                     }
                 });
-                mGp.commonDlg.showCommonDialog(false, "W",
-                        mContext.getString(R.string.msgs_main_permission_external_storage_title),
-                        mContext.getString(R.string.msgs_main_permission_external_storage_request_msg), ntfy);
             }
         }
     }
@@ -733,8 +733,47 @@ public class ActivityMain extends AppCompatActivity {
         ntfy_all_file_access.setListener(new NotifyEvent.NotifyEventListener() {
             @Override
             public void positiveResponse(Context context, Object[] objects) {
-                Intent in=new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                startActivityForResult(in, REQUEST_CODE_ALL_FILE_ACCESS);
+//                ActivityResultLauncher<String> request_permission =mActivity.registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+//                    if (isGranted) {
+//                        mLegacyStoragePermissionInprocess=false;
+//                        mFileMgr.setMainListener();
+//                    } else {
+//                        mGp.commonDlg.showCommonDialog(mActivity, false, "W",
+//                                mContext.getString(R.string.msgs_main_permission_all_file_access_title),
+//                                mContext.getString(R.string.msgs_main_permission_all_file_access_denied_msg),
+//                            new CallBackListener(){
+//                            @Override
+//                            public void onCallBack(Context c, boolean positive, Object[] objects) {
+//                                if (positive) finish();
+//                            }
+//                        });
+//                    }
+//                });
+//                request_permission.launch(Manifest.permission.MANAGE_EXTERNAL_STORAGE);
+
+                ActivityResultLauncher<Intent> activity_laucher =
+                        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                    @Override
+                    public void onActivityResult(ActivityResult result) {
+                        if (isAllFileAccessPermissionGranted()) {
+                            mLegacyStoragePermissionInprocess=false;
+                            mFileMgr.setMainListener();
+                        } else {
+                            mGp.commonDlg.showCommonDialog(mActivity, false, "W",
+                                    mContext.getString(R.string.msgs_main_permission_all_file_access_title),
+                                    mContext.getString(R.string.msgs_main_permission_all_file_access_denied_msg),
+                                    new CallBackListener(){
+                                        @Override
+                                        public void onCallBack(Context c, boolean positive, Object[] objects) {
+                                            if (positive) finish();
+                                        }
+                                    });
+                        }
+                    }
+                });
+                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                activity_laucher.launch(intent);
+
             }
 
             @Override
@@ -807,40 +846,16 @@ public class ActivityMain extends AppCompatActivity {
 
     private boolean isAllFileAccessPermissionGranted() {
         return Environment.isExternalStorageManager();
-//        File lf=new File("/storage/emulated/0/"+System.currentTimeMillis());
-//        try {
-//            boolean rc=lf.createNewFile();
-//            rc=lf.delete();
-//            return rc;
-//        } catch(Exception e) {
-//            return false;
-//        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (REQUEST_PERMISSIONS_WRITE_EXTERNAL_STORAGE == requestCode) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mLegacyStoragePermissionInprocess=false;
-                mFileMgr.setMainListener();
-            } else {
-                NotifyEvent ntfy_term = new NotifyEvent(mContext);
-                ntfy_term.setListener(new NotifyEvent.NotifyEventListener() {
-                    @Override
-                    public void positiveResponse(Context c, Object[] o) {
-//                        isTaskTermination = true;
-                        finish();
-                    }
-
-                    @Override
-                    public void negativeResponse(Context c, Object[] o) {
-                    }
-                });
-                mGp.commonDlg.showCommonDialog(false, "W",
-                        mContext.getString(R.string.msgs_main_permission_external_storage_title),
-                        mContext.getString(R.string.msgs_main_permission_external_storage_denied_msg), ntfy_term);
-            }
-        }
+        super.onRequestPermissionsResult(requestCode, permissions,grantResults);
     }
 
     @Override
@@ -887,18 +902,9 @@ public class ActivityMain extends AppCompatActivity {
 	}
 
     private void invokeLogManagement() {
-        NotifyEvent ntfy=new NotifyEvent(mContext);
-        ntfy.setListener(new NotifyEvent.NotifyEventListener(){
-            @Override
-            public void positiveResponse(Context c, Object[] o) {
-            }
-            @Override
-            public void negativeResponse(Context c, Object[] o) {
-            }
-        });
         mUtil.flushLog();
         LogManagementFragment lfm= LogManagementFragment.newInstance(false, getString(R.string.msgs_log_management_title));
-        lfm.showDialog(mContext, getSupportFragmentManager(), lfm, ntfy);
+        lfm.showDialog(mContext, getSupportFragmentManager(), lfm, null);
     };
 
     private void sendMagicPacket(final String target_mac, final String if_network) {
@@ -1012,12 +1018,20 @@ public class ActivityMain extends AppCompatActivity {
 	}
 
 	private void invokeSettingsActivity() {
-		Intent intent = new Intent(mContext, ActivitySetting.class);
-		startActivityForResult(intent,0);
+        ActivityResultLauncher<Intent> activity_laucher =
+                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                    @Override
+                    public void onActivityResult(ActivityResult result) {
+                        mUtil.addDebugMsg(1, "I", "Return from Setting activity.");
+                        applySettingParms();
+                    }
+                });
+        Intent intent = new Intent(mContext, ActivitySetting.class);
+        activity_laucher.launch(intent);
 	}
 
-	private final int REQUEST_CODE_STORAGE_ACCESS =40;
-    private final int REQUEST_CODE_ALL_FILE_ACCESS =80;
+//	private final int REQUEST_CODE_STORAGE_ACCESS =40;
+//    private final int REQUEST_CODE_ALL_FILE_ACCESS =80;
 
 	public void requestStoragePermissions() {
         StoragePermission ss=new StoragePermission(mActivity, mGp);
@@ -1034,69 +1048,50 @@ public class ActivityMain extends AppCompatActivity {
                     if (Build.VERSION.SDK_INT>=29) {
                         if (!svi.uuid.equals(SAF_FILE_PRIMARY_UUID)) {
                             intent=svi.volume.createOpenDocumentTreeIntent();
-                            startActivityForResult(intent, REQUEST_CODE_STORAGE_ACCESS);
                             break;
                         }
                     } else {
                         if (!svi.uuid.equals(SAF_FILE_PRIMARY_UUID)) {
                             intent=svi.volume.createAccessIntent(null);
-                            startActivityForResult(intent, REQUEST_CODE_STORAGE_ACCESS);
                             break;
                         }
                     }
                 } else {
                     if (!svi.uuid.equals(SAF_FILE_PRIMARY_UUID)) {
                         intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                        startActivityForResult(intent, REQUEST_CODE_STORAGE_ACCESS);
                         break;
                     }
                 }
             }
         }
-    }
-
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == REQUEST_CODE_STORAGE_ACCESS) {
-	        if (resultCode == Activity.RESULT_OK) {
-                mUtil.addDebugMsg(1,"I","Storage picker action="+data.getAction()+", path="+data.getData().getPath());
-                if (mGp.safMgr.isRootTreeUri(data.getData())) {
-                    mGp.safMgr.addUuid(data.getData());
-                    mGp.safMgr.refreshSafList();
-                    mFileMgr.updateLocalDirSpinner();
-                } else {
-                    NotifyEvent ntfy=new NotifyEvent(mContext);
-                    ntfy.setListener(new NotifyEvent.NotifyEventListener() {
-                        @Override
-                        public void positiveResponse(Context context, Object[] objects) {
-                            requestStoragePermissions();
-                        }
-                        @Override
-                        public void negativeResponse(Context context, Object[] objects) {}
-                    });
-                    mGp.commonDlg.showCommonDialog(true, "W", "ルートディレクトリーが選択されていません、選択しなおしますか?", data.getData().getPath(), ntfy);
+        if (intent!=null) {
+            ActivityResultLauncher<Intent> activity_laucher =
+                    registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    Intent data=result.getData();
+                    mUtil.addDebugMsg(1,"I","Storage picker action="+data.getAction()+", path="+data.getData().getPath());
+                    if (mGp.safMgr.isRootTreeUri(data.getData())) {
+                        mGp.safMgr.addUuid(data.getData());
+                        mGp.safMgr.refreshSafList();
+                        mFileMgr.updateLocalDirSpinner();
+                    } else {
+                        NotifyEvent ntfy=new NotifyEvent(mContext);
+                        ntfy.setListener(new NotifyEvent.NotifyEventListener() {
+                            @Override
+                            public void positiveResponse(Context context, Object[] objects) {
+                                requestStoragePermissions();
+                            }
+                            @Override
+                            public void negativeResponse(Context context, Object[] objects) {}
+                        });
+                        mGp.commonDlg.showCommonDialog(true, "W", "ルートディレクトリーが選択されていません、選択しなおしますか?", data.getData().getPath(), ntfy);
+                    }
                 }
-            }
-	    } else if (requestCode == 0) {
-	    	applySettingParms();
-        } else if (requestCode == REQUEST_CODE_ALL_FILE_ACCESS) {
-		    if (!isAllFileAccessPermissionGranted()) {
-                NotifyEvent ntfy_denied=new NotifyEvent(mContext);
-                ntfy_denied.setListener(new NotifyEvent.NotifyEventListener() {
-                    @Override
-                    public void positiveResponse(Context context, Object[] objects) {
-                        finish();
-                    }
-                    @Override
-                    public void negativeResponse(Context context, Object[] objects) {
-
-                    }
-                });
-                mGp.commonDlg.showCommonDialog(false, "W",
-                        mContext.getString(R.string.msgs_main_permission_all_file_access_title),
-                        mContext.getString(R.string.msgs_main_permission_all_file_access_denied_msg), ntfy_denied);
-            }
-	    }
-	}
+            });
+            activity_laucher.launch(intent);
+        }
+    }
 
     public class CustomTabContentView extends FrameLayout {
         LayoutInflater inflater = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -1288,7 +1283,7 @@ public class ActivityMain extends AppCompatActivity {
                     mGp.currentLocalStorage.storage_root=new SafFile3(mContext, mGp.currentLocalStorage.storage_root_path);
             }
 
-            mGp.pasteInfo= (GlobalParameters.PasteInfo) ois.readObject();
+            mGp.pasteInfo= (GlobalParameter.PasteInfo) ois.readObject();
             if (!mGp.pasteInfo.pasteToSafRootPath.equals(""))
                 mGp.pasteInfo.pasteToSafRoot=new SafFile3(mContext, mGp.pasteInfo.pasteToSafRootPath);
             if (!mGp.pasteInfo.pasteFromSafRootPath.equals(""))
