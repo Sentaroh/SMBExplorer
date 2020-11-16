@@ -1,7 +1,7 @@
 package com.sentaroh.android.SMBExplorer;
 /*
 The MIT License (MIT)
-Copyright (c) 2011-2019 Sentaroh
+Copyright (c) 2011 Sentaroh
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal
@@ -1064,7 +1064,9 @@ public class FileManager {
                             mActivity.setUiEnabled(true);
                         } else {
                             mActivity.setUiEnabled(true);
-                            startLocalFileViewerIntent(item, null);
+                            String fn=item.getName().toLowerCase();
+                            if (fn.endsWith(".md") || fn.endsWith(".markdown")) startLocalFileViewerIntent(item, "text/plain");
+                            else startLocalFileViewerIntent(item, null);
                         }
                     }
                 }
