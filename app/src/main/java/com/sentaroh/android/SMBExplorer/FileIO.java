@@ -533,16 +533,22 @@ public class FileIO extends Thread {
 		if (isDirectory) { // Directory copy
 			result=true;
             SafFile3[] children = from_saf.listFiles();
-            for (SafFile3 element : children) {
-                if (!fileioThreadCtrl.isEnabled()) return false;
-                if (!copyMoveLocalToLocal(move, fromUrl+"/"+element.getName(), toUrl+"/"+element.getName() ))
-                    return false;
-            }
-            makeLocalDirsByFilePath(toUrl+"/");
-            if (move) {
-                from_saf.delete();
-                sendLogMsg("I",fromUrl," was moved.");
-            }
+            if (children!=null) {
+				for (SafFile3 element : children) {
+					if (!fileioThreadCtrl.isEnabled()) return false;
+					if (!copyMoveLocalToLocal(move, fromUrl+"/"+element.getName(), toUrl+"/"+element.getName() ))
+						return false;
+				}
+				makeLocalDirsByFilePath(toUrl+"/");
+				if (move) {
+					from_saf.delete();
+					sendLogMsg("I",fromUrl," was moved.");
+				}
+			} else {
+				fileioThreadCtrl.setThreadMessage("File list is null");
+				sendLogMsg("E","File list is null");
+            	return false;
+			}
 		} else {
 			if (!fileioThreadCtrl.isEnabled()) return false;
 			makeLocalDirsByFilePath(toUrl);
@@ -626,17 +632,23 @@ public class FileIO extends Thread {
             if (isDirectory) { // Directory copy
                 result=true;
                 SafFile3[] children = from_saf.listFiles();
-                for (SafFile3 element : children) {
-                    if (!fileioThreadCtrl.isEnabled()) return false;
-                    String new_to_url=element.isDirectory()?toUrl+"/"+element.getName()+"/":toUrl+"/"+element.getName();
-                    if (!copyMoveLocalToRemote(move, to_jcifs_auth, fromUrl+"/"+element.getName(), new_to_url))
-                        return false;
-                }
-                makeRemoteDirsByFilePath(to_jcifs_auth, toUrl+"/");
-                if (move) {
-                    from_saf.delete();
-                    sendLogMsg("I",fromUrl," was deleted.");
-                }
+                if (children!=null) {
+					for (SafFile3 element : children) {
+						if (!fileioThreadCtrl.isEnabled()) return false;
+						String new_to_url=element.isDirectory()?toUrl+"/"+element.getName()+"/":toUrl+"/"+element.getName();
+						if (!copyMoveLocalToRemote(move, to_jcifs_auth, fromUrl+"/"+element.getName(), new_to_url))
+							return false;
+					}
+					makeRemoteDirsByFilePath(to_jcifs_auth, toUrl+"/");
+					if (move) {
+						from_saf.delete();
+						sendLogMsg("I",fromUrl," was deleted.");
+					}
+				} else {
+					fileioThreadCtrl.setThreadMessage("File list is null");
+					sendLogMsg("E","File list is null");
+					return false;
+				}
             } else {
                 if (!fileioThreadCtrl.isEnabled()) return false;
                 makeRemoteDirsByFilePath(to_jcifs_auth, toUrl);
