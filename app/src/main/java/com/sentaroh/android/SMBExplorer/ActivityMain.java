@@ -73,6 +73,7 @@ import com.sentaroh.android.Utilities3.Dialog.CommonDialog;
 import com.sentaroh.android.Utilities3.NotifyEvent;
 import com.sentaroh.android.Utilities3.SafFile3;
 import com.sentaroh.android.Utilities3.SafManager3;
+import com.sentaroh.android.Utilities3.StringUtil;
 import com.sentaroh.android.Utilities3.SystemInfo;
 import com.sentaroh.android.Utilities3.ThemeUtil;
 import com.sentaroh.android.Utilities3.Widget.CustomViewPager;
