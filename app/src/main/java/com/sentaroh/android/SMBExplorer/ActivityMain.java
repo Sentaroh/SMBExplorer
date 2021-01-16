@@ -190,6 +190,14 @@ public class ActivityMain extends AppCompatActivity {
 
         cleanupCacheFile();
 
+//        try {
+//            File lf_rb=new File("/storage/emulated/0/\u00a0rb_file.txt");
+//            lf_rb.createNewFile();
+//            File lf_01=new File("/storage/emulated/0/\u000101_file.txt");
+//            lf_01.createNewFile();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
 
     private class MyUncaughtExceptionHandler extends AppUncaughtExceptionHandler {

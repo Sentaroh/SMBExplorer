@@ -918,10 +918,10 @@ public class FileIO extends Thread {
     }
 
     private void scanMediaStoreLibraryFile(String fp) {
-        if (Build.VERSION.SDK_INT<=23) {
+//        if (Build.VERSION.SDK_INT<=23) {
             sendLogMsg("I","MediaScanner invoked, fp="+fp);
             MediaScannerConnection.scanFile(mContext, new String[]{fp}, null, null);
-        }
+//        }
 	};
 
     private boolean isFileDifferent(long f1_lm, long f1_fl,long f2_lm, long f2_fl) {
