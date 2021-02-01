@@ -509,18 +509,18 @@ public class FileIO extends Thread {
         
     }
     
-	private String makeRemoteTempFilePath(String  targetUrl) {
-		String tmp_wu="";
-		String last_sep="";
-		if (targetUrl.endsWith("/")) {
-			tmp_wu=targetUrl.substring(0,(targetUrl.length()-1));
-			last_sep="/";
-		} else tmp_wu=targetUrl;
-		String target_dir1=tmp_wu.substring(0,tmp_wu.lastIndexOf("/"));
-		String target_fn=tmp_wu.replace(target_dir1, "").substring(1);
-		String tmp_target=target_dir1+"/SMBExplorer.work.tmp"+last_sep;
-		return tmp_target;
-	}
+//	private String makeRemoteTempFilePath(String  targetUrl) {
+//		String tmp_wu="";
+//		String last_sep="";
+//		if (targetUrl.endsWith("/")) {
+//			tmp_wu=targetUrl.substring(0,(targetUrl.length()-1));
+//			last_sep="/";
+//		} else tmp_wu=targetUrl;
+//		String target_dir1=tmp_wu.substring(0,tmp_wu.lastIndexOf("/"));
+//		String target_fn=tmp_wu.replace(target_dir1, "").substring(1);
+//		String tmp_target=target_dir1+"/SMBExplorer.work.tmp"+last_sep;
+//		return tmp_target;
+//	}
 
     private boolean copyMoveLocalToLocal(boolean move, String fromUrl, String toUrl)  {
         File iLf=null;
@@ -672,7 +672,7 @@ public class FileIO extends Thread {
 	    SafFile3 temp_out=null;
         try {
             if (to_saf.getAppDirectoryCache()!=null && Build.VERSION.SDK_INT>=24) {
-                File tf=new File(to_saf.getAppDirectoryCache()+"/"+to_saf.getName());
+                File tf=new File(to_saf.getAppDirectoryCache()+"/"+System.currentTimeMillis());//to_saf.getName());
                 File df=new File(tf.getParent());
                 if (!df.exists()) df.mkdirs();
                 copyFile(from_saf.getInputStream(), new FileOutputStream(tf), from_saf.length(), title, from_saf.getName(), fromUrl, toUrl);
@@ -684,7 +684,7 @@ public class FileIO extends Thread {
                     tf.setLastModified(from_saf.lastModified());
                     temp_out=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+to_saf.getName());
                     to_saf.deleteIfExists();
-                    result=temp_out.moveTo(to_saf);
+                    result=temp_out.moveToWithRename(to_saf);
                     if (move && result) result=from_saf.delete();
                 }
             } else {
@@ -717,7 +717,7 @@ public class FileIO extends Thread {
         SafFile3 temp_out=null;
         try {
             if (to_saf.getAppDirectoryCache()!=null && Build.VERSION.SDK_INT>=24) {
-                temp_out=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+to_saf.getName());
+                temp_out=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+System.currentTimeMillis());//to_saf.getName());
                 File tf=new File(temp_out.getPath());
                 File df=new File(tf.getParent());
                 if (!df.exists()) df.mkdirs();
@@ -729,7 +729,7 @@ public class FileIO extends Thread {
                 } else {
                     tf.setLastModified(from_jcifs.getLastModified());
                     to_saf.deleteIfExists();
-                    result=temp_out.moveTo(to_saf);
+                    result=temp_out.moveToWithRename(to_saf);
                     if (move && result) from_jcifs.delete();
                 }
             } else {
