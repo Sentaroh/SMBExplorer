@@ -2544,38 +2544,10 @@ public class FileManager {
     }
 
     static private boolean isMediaFile(File lf) {
-        final String[] FILE_TYPE_AUDIO=
-                new String[]{".aac",".aif", ".aifc", ".aiff", ".kar", ".m3u", ".m4a", ".mid", ".midi", ".mp2",
-                        ".mp3", ".mpga", ".ra", ".ram", ".wav"};
-        final String[] FILE_TYPE_IMAGE=
-                new String[]{".bmp", ".cgm", ".djv", ".djvu", ".gif", ".ico", ".ief", ".jpe", ".jpeg", ".jpg", ".pbm",
-                        ".pgm", ".png", ".pnm", ".ppm", ".ras", ".rgb", ".svg", ".tif", ".tiff", ".wbmp", ".xbm",
-                        ".xpm", ".xwd"};
-        final String[] FILE_TYPE_VIDEO=
-                new String[]{".avi", ".m4u", ".mov", ".mp4", ".movie", ".mpe", ".mpeg", ".mpg", ".mxu", ".qt", ".wmv"};
-
         boolean result=false;
-        for(String ft:FILE_TYPE_AUDIO) {
-            if (lf.getName().toLowerCase().endsWith(ft)) {
-                result=true;
-                break;
-            }
-        }
-        if (!result) {
-            for(String ft:FILE_TYPE_IMAGE) {
-                if (lf.getName().toLowerCase().endsWith(ft)) {
-                    result=true;
-                    break;
-                }
-            }
-        }
-        if (!result) {
-            for(String ft:FILE_TYPE_VIDEO) {
-                if (lf.getName().toLowerCase().endsWith(ft)) {
-                    result=true;
-                    break;
-                }
-            }
+        String mime_type=MimeTypeMap.getSingleton().getMimeTypeFromExtension(FileIO.getFileExtention(lf.getPath()));
+        if (mime_type!=null) {
+            if (mime_type.startsWith("audio") || mime_type.startsWith("image") || mime_type.startsWith("video")) result=true;
         }
         return result;
     }

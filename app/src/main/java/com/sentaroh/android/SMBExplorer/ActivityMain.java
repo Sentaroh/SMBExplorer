@@ -26,12 +26,14 @@ OTHER DEALINGS IN THE SOFTWARE.
 import android.Manifest;
 import android.app.Dialog;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.database.Cursor;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -39,6 +41,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.storage.StorageManager;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -198,7 +201,30 @@ public class ActivityMain extends AppCompatActivity {
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
+//        listMediaStoreItem(mContext);
     }
+
+    private void listMediaStoreItem(Context c) {
+        ContentResolver resolver = c.getContentResolver();
+        Cursor cursor =null;
+        try {
+            cursor = resolver.query(MediaStore.Files.getContentUri("external") ,null , null, null, "_data");
+            while( cursor.moveToNext() ){
+                String file_path=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.DATA));
+                String display_name=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.DISPLAY_NAME));
+                long date_added=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.DATE_ADDED));
+                long date_modified=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.DATE_MODIFIED));
+                long media_size=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.SIZE));
+                String media_title=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.TITLE));
+                String bu_name=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.BUCKET_DISPLAY_NAME));
+                if (!file_path.startsWith("/storage/emulated")) mUtil.addDebugMsg(1, "I", "MeidaStore fp="+file_path);
+            }
+
+        } finally {
+            if (cursor!=null) cursor.close();
+        }
+    }
+
 
     private class MyUncaughtExceptionHandler extends AppUncaughtExceptionHandler {
         @Override
@@ -336,7 +362,7 @@ public class ActivityMain extends AppCompatActivity {
     private ISvcCallback mSvcCallbackStub = new ISvcCallback.Stub() {
         @Override
         public void cbWifiStatusChanged() throws RemoteException {
-            mUtil.addDebugMsg(1, "I","cbWifiStatusChanged entered");
+            mUtil.addDebugMsg(2, "I","cbWifiStatusChanged entered");
             mUiHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -431,8 +457,7 @@ public class ActivityMain extends AppCompatActivity {
 		restoreViewStatus(vsa);
 
         mFileMgr.setPasteItemList();
-		switchTab(mGp.currentTabName);
-
+        mGp.tabHost.setCurrentTabByTag(mGp.currentTabName);
         mFileMgr.setLocalDirBtnListener();
         mFileMgr.setRemoteDirBtnListener();
         mGp.localFileListDirSpinner.setSelection(vsa.local_spinner_pos, false);
@@ -549,14 +574,6 @@ public class ActivityMain extends AppCompatActivity {
 			mActivity.invalidateOptionsMenu();
 	}
 
-	private void switchTab(String tab_name) {
-        if (tab_name.equals(SMBEXPLORER_TAB_REMOTE)) {
-            mGp.tabHost.setCurrentTabByTag(tab_name);
-        } else if (tab_name.equals(SMBEXPLORER_TAB_LOCAL)) {
-            mGp.tabHost.setCurrentTabByTag(tab_name);
-        }
-    }
-
 	private void createTabAndView() {
 		mGp.themeColorList = ThemeUtil.getThemeColorList(mActivity);
 //        getWindow().setNavigationBarColor(Color.RED);
@@ -571,10 +588,10 @@ public class ActivityMain extends AppCompatActivity {
         main_view.setVisibility(LinearLayout.INVISIBLE);
 //        main_view.setBackgroundColor(Color.BLACK);//mGp.themeColorList.window_background_color_content);
 
-        CustomTabContentView tabLocal = new CustomTabContentView(this, SMBEXPLORER_TAB_LOCAL);
+        CustomTabContentView tabLocal = new CustomTabContentView(mActivity, SMBEXPLORER_TAB_LOCAL);
         mGp.tabHost.addTab(mGp.tabHost.newTabSpec(SMBEXPLORER_TAB_LOCAL).setIndicator(tabLocal).setContent(android.R.id.tabcontent));
 
-        CustomTabContentView tabRemote = new CustomTabContentView(this, SMBEXPLORER_TAB_REMOTE);
+        CustomTabContentView tabRemote = new CustomTabContentView(mActivity, SMBEXPLORER_TAB_REMOTE);
         mGp.tabHost.addTab(mGp.tabHost.newTabSpec(SMBEXPLORER_TAB_REMOTE).setIndicator(tabRemote).setContent(android.R.id.tabcontent));
 
         mGp.tabHost.setOnTabChangedListener(new OnTabChange());
@@ -1303,8 +1320,7 @@ public class ActivityMain extends AppCompatActivity {
             restoreViewStatus(vsa);
 
             mFileMgr.setPasteItemList();
-            switchTab(mGp.currentTabName);
-
+            mGp.tabHost.setCurrentTabByTag(mGp.currentTabName);
             mFileMgr.setSpinnerSelectionEnabled(false);
             mFileMgr.setLocalDirBtnListener();
             mFileMgr.setRemoteDirBtnListener();

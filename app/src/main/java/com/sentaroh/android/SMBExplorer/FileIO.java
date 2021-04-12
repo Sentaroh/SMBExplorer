@@ -24,8 +24,11 @@ OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.Cursor;
 import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Build;
@@ -33,6 +36,8 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.RemoteException;
+import android.provider.MediaStore;
+import android.webkit.MimeTypeMap;
 
 import com.sentaroh.android.SMBExplorer.Log.LogUtil;
 import com.sentaroh.android.Utilities3.NotifyEvent;
@@ -100,7 +105,9 @@ public class FileIO extends Thread {
 	@Override
 	public void run() {
 		sendLogMsg("I","Task has started.");
-		
+
+		connectMediaScanner();
+
 		final WakeLock wake_lock=((PowerManager)mContext.getSystemService(Context.POWER_SERVICE))
 	    			.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP
 //	   	    				| PowerManager.ON_AFTER_RELEASE
@@ -144,6 +151,7 @@ public class FileIO extends Thread {
 		} finally {
 			if (wake_lock.isHeld()) wake_lock.release();
 			if (wifi_lock.isHeld()) wifi_lock.release();
+			disconnectMediaScanner();
 		}
 	}
 
@@ -339,9 +347,17 @@ public class FileIO extends Thread {
     	try {
 			document=new SafFile3(mContext, oldUrl);
 			SafFile3 new_file=new SafFile3(mContext, newUrl);
-//			result=document.renameTo(new_file);
+			ArrayList<String>old_file_list=new ArrayList<String>();
+//			old_file_list.add(document.getPath());
+			buildRenameList(document, old_file_list);
 			result=renameSafFile(document, new_file);
-			scanMediaStoreLibraryFile(new_file.getPath());
+			if (result) {
+				ArrayList<String>new_file_list=new ArrayList<String>();
+//				new_file_list.add(new_file.getPath());
+				buildRenameList(new_file, new_file_list);
+				for(String old_item:old_file_list) scanMediaStoreLibraryFile(old_item);
+				for(String new_item:new_file_list) scanMediaStoreLibraryFile(new_item);
+			}
         } catch(Exception e) {
     	    e.printStackTrace();
         }
@@ -353,6 +369,23 @@ public class FileIO extends Thread {
         }
     	return result;
     }
+
+	private void buildRenameList(SafFile3 sf, ArrayList<String>file_list) {
+		if (sf.isDirectory()) {
+			SafFile3[] fl=sf.listFiles();
+			if (fl!=null && fl.length>0) {
+				for(SafFile3 item:fl) {
+					if (item.isDirectory()) {
+						buildRenameList(item, file_list);
+					} else {
+						file_list.add(item.getPath());
+					}
+				}
+			}
+		} else {
+			file_list.add(sf.getPath());
+		}
+	}
 
 	public static boolean renameSafFile(SafFile3 from, SafFile3 to) {
 		boolean result=from.renameTo(to);
@@ -375,7 +408,6 @@ public class FileIO extends Thread {
             try {
                 client = mContext.getContentResolver().acquireContentProviderClient(usf.getUri().getAuthority());
                 result = deleteSafFile(usf, client);
-				scanMediaStoreLibraryFile(url);
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -410,18 +442,28 @@ public class FileIO extends Thread {
 				sendLogMsg("I","Directory can not read, Directory=",lf.getPath());
 				return false;
 			}
-        }
-        if (!fileioThreadCtrl.isEnabled()) return false;
-//        result=lf.delete();
-        result=lf.delete();
-        scanMediaStoreLibraryFile(lf.getPath());
-        if (result) {
-            sendMsgToProgDlg(lf.getName()+" was deleted");
-            sendLogMsg("I","File was Deleted. File=",lf.getPath());
+			if (!fileioThreadCtrl.isEnabled()) return false;
+			result=lf.delete();
+			if (result) {
+				sendMsgToProgDlg("Directory "+lf.getName()+" was deleted");
+				sendLogMsg("I","Directory was Deleted. Directory=",lf.getPath());
+			} else {
+				sendLogMsg("I","Delete directry was failed, Directory=",lf.getPath());
+				fileioThreadCtrl.setThreadMessage("Delete directory was failed, Directory="+lf.getPath());
+			}
         } else {
-            sendLogMsg("I","Delete was failed, File=",lf.getPath());
-            fileioThreadCtrl.setThreadMessage("Delete was failed, File="+lf.getPath());
-        }
+			if (!fileioThreadCtrl.isEnabled()) return false;
+			result=lf.delete();
+//			scanMediaStoreLibraryFile(lf.getPath());
+			deleteMediaStoreItem(mContext, lf.getPath());
+			if (result) {
+				sendMsgToProgDlg("File "+lf.getName()+" was deleted");
+				sendLogMsg("I","File was Deleted. File=",lf.getPath());
+			} else {
+				sendLogMsg("I","Delete file was failed, File=",lf.getPath());
+				fileioThreadCtrl.setThreadMessage("Delete file was failed, File="+lf.getPath());
+			}
+		}
         return result;
 
     }
@@ -437,22 +479,35 @@ public class FileIO extends Thread {
                     return false;  
                 }  
             }
-        }
-        if (!fileioThreadCtrl.isEnabled()) return false;
-        try {
-            SafFile3.deleteDocument(client, lf.getUri());
-            scanMediaStoreLibraryFile(lf.getPath());
-            result=true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        if (result) {
-    	    sendMsgToProgDlg(lf.getName()+" was deleted");
-    	    sendLogMsg("I","File was Deleted. File=",lf.getPath());
-	    } else {
-    	    sendLogMsg("I","Delete was failed, File=",lf.getPath());
-    	    fileioThreadCtrl.setThreadMessage("Delete was failed, File="+lf.getPath());
-	    }
+			if (!fileioThreadCtrl.isEnabled()) return false;
+			try {
+				result=lf.delete(client);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			if (result) {
+				sendMsgToProgDlg("Directory "+lf.getName()+" was deleted");
+				sendLogMsg("I","Directory was Deleted. File=",lf.getPath());
+			} else {
+				sendLogMsg("I","Delete directory was failed, File=",lf.getPath());
+				fileioThreadCtrl.setThreadMessage("Delete directory was failed, File="+lf.getPath());
+			}
+        } else {
+			if (!fileioThreadCtrl.isEnabled()) return false;
+			try {
+				result=lf.delete(client);
+				deleteMediaStoreItem(mContext, lf.getPath());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			if (result) {
+				sendMsgToProgDlg(lf.getName()+" was deleted");
+				sendLogMsg("I","File was Deleted. File=",lf.getPath());
+			} else {
+				sendLogMsg("I","Delete file was failed, File=",lf.getPath());
+				fileioThreadCtrl.setThreadMessage("Delete file was failed, File="+lf.getPath());
+			}
+		}
 	    return result;
         
     }
@@ -557,7 +612,7 @@ public class FileIO extends Thread {
             long b_time=System.currentTimeMillis();
             if (from_saf.getUuid().equals(to_saf.getUuid()) && move) result=from_saf.moveTo(to_saf);
             else {
-                result=copyMoveFileLocalToLocat(move, from_saf, to_saf, fromUrl, toUrl);
+                result= copyMoveFileLocalToLocal(move, from_saf, to_saf, fromUrl, toUrl);
             }
             putCopyMoveResultMessage(move, result, from_saf.length(), b_time, fromUrl, toUrl, from_saf.getName());
 		}
@@ -608,13 +663,15 @@ public class FileIO extends Thread {
             if (move) {
                 sendMsgToProgDlg(fn + " was moved.");
                 sendLogMsg("I",fromUrl," was moved to ",toUrl);
-            } else {
+				if (!toUrl.startsWith("smb://")) scanMediaStoreLibraryFile(toUrl);
+				if (!fromUrl.startsWith("smb://")) scanMediaStoreLibraryFile(fromUrl);
+			} else {
                 sendMsgToProgDlg(fn + " was copied.");
                 sendLogMsg("I",fromUrl," was copied to ",toUrl);
+				if (!toUrl.startsWith("smb://")) scanMediaStoreLibraryFile(toUrl);
             }
             sendLogMsg("I",length + " bytes transfered in " +
                     (System.currentTimeMillis()-b_time)+" mili seconds at " + calTransferRate(length, (System.currentTimeMillis()-b_time)));
-            scanMediaStoreLibraryFile(toUrl);
         } else {
             if (move) sendLogMsg("I","Move was failed. fromUrl=", fromUrl,", toUrl=",toUrl);
             else sendLogMsg("I","Copy was failed. fromUrl=", fromUrl,", toUrl=",toUrl);
@@ -666,10 +723,10 @@ public class FileIO extends Thread {
         return result;
     }
 
-    private boolean copyMoveFileLocalToLocat(boolean move, SafFile3 from_saf, SafFile3 to_saf, String fromUrl, String toUrl) {
+    private boolean copyMoveFileLocalToLocal(boolean move, SafFile3 from_saf, SafFile3 to_saf, String fromUrl, String toUrl) {
 	    boolean result=false;
 	    String title=move?"Moving":"Copying";
-	    SafFile3 temp_out=null;
+	    SafFile3 temp_saf=null;
         try {
             if (to_saf.getAppDirectoryCache()!=null && Build.VERSION.SDK_INT>=24) {
                 File tf=new File(to_saf.getAppDirectoryCache()+"/"+System.currentTimeMillis());//to_saf.getName());
@@ -682,30 +739,39 @@ public class FileIO extends Thread {
                     result=false;
                 } else {
                     tf.setLastModified(from_saf.lastModified());
-                    temp_out=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+to_saf.getName());
+                    temp_saf=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+tf.getName());
                     to_saf.deleteIfExists();
-                    result=temp_out.moveToWithRename(to_saf);
-                    if (move && result) result=from_saf.delete();
+                    result=temp_saf.moveToWithRename(to_saf);
+                    if (result) {
+						if (move) {
+							result=from_saf.delete();
+							scanMediaStoreLibraryFile(from_saf.getPath());
+						}
+						scanMediaStoreLibraryFile(to_saf.getPath());
+					}
                 }
             } else {
-                temp_out=new SafFile3(mContext, toUrl+".tmp");
-                temp_out.createNewFile();
-                copyFile(from_saf.getInputStream(), temp_out.getOutputStream(), from_saf.length(), title, from_saf.getName(), fromUrl, toUrl);
+                temp_saf=new SafFile3(mContext, toUrl+".tmp");
+                temp_saf.createNewFile();
+                copyFile(from_saf.getInputStream(), temp_saf.getOutputStream(), from_saf.length(), title, from_saf.getName(), fromUrl, toUrl);
                 if (!fileioThreadCtrl.isEnabled()) {
-                    temp_out.deleteIfExists();
+                    temp_saf.deleteIfExists();
                     result=false;
                 } else {
                     to_saf.deleteIfExists();
-					result=renameSafFile(temp_out, to_saf);
-					if (move && result) result=from_saf.delete();
-					scanMediaStoreLibraryFile(from_saf.getPath());
+					result=renameSafFile(temp_saf, to_saf);
+					if (move && result) {
+						result=from_saf.delete();
+						scanMediaStoreLibraryFile(from_saf.getPath());
+					}
+					scanMediaStoreLibraryFile(to_saf.getPath());
                 }
             }
         } catch(Exception e) {
             e.printStackTrace();
             sendLogMsg("E","copyMoveFileLocalToLocal error:",e.toString());
             fileioThreadCtrl.setThreadMessage("copyMoveFileLocalToLocal error:"+e.toString());
-            if (temp_out!=null) try {if (temp_out.exists()) temp_out.delete();} catch(Exception ex) {}
+            if (temp_saf!=null) try {if (temp_saf.exists()) temp_saf.delete();} catch(Exception ex) {}
             result=false;
         }
         return result;
@@ -731,6 +797,7 @@ public class FileIO extends Thread {
                     to_saf.deleteIfExists();
                     result=temp_out.moveToWithRename(to_saf);
                     if (move && result) from_jcifs.delete();
+					scanMediaStoreLibraryFile(to_saf.getPath());
                 }
             } else {
                 temp_out=new SafFile3(mContext, toUrl+".tmp");
@@ -771,7 +838,10 @@ public class FileIO extends Thread {
                 if (to_jcifs.exists()) to_jcifs.delete();
                 temp_out.renameTo(to_jcifs);
                 result=true;
-                if (move && result) result=from_saf.delete();
+                if (move && result) {
+                	result=from_saf.delete();
+					scanMediaStoreLibraryFile(from_saf.getPath());
+				}
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -917,14 +987,111 @@ public class FileIO extends Thread {
         return true;
     }
 
-    private void scanMediaStoreLibraryFile(String fp) {
-//        if (Build.VERSION.SDK_INT<=23) {
-            sendLogMsg("I","MediaScanner invoked, fp="+fp);
-            MediaScannerConnection.scanFile(mContext, new String[]{fp}, null, null);
-//        }
+	private MediaScannerConnection mMediaScannerConnection = null;
+	private MediaScannerConnection.MediaScannerConnectionClient mScannerConnectionClient = new MediaScannerConnection.MediaScannerConnectionClient() {
+		@Override
+		public void onScanCompleted(String path, Uri uri) {
+			sendDebugLogMsg(1, "I", "Scanned " + path + ":", "-> uri=" + uri);
+		}
+
+		@Override
+		public void onMediaScannerConnected() {
+			sendDebugLogMsg(1, "I", "onMediaScannerConnected ");
+			synchronized (mMediaScannerConnection) {
+				mMediaScannerConnection.notify();
+			}
+		}
 	};
 
-    private boolean isFileDifferent(long f1_lm, long f1_fl,long f2_lm, long f2_fl) {
+	private void connectMediaScanner() {
+		mMediaScannerConnection = new MediaScannerConnection(mContext, mScannerConnectionClient);
+		mMediaScannerConnection.connect();
+		synchronized (mMediaScannerConnection) {
+			try {
+				mMediaScannerConnection.wait(1000);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void disconnectMediaScanner() {
+		mMediaScannerConnection.disconnect();
+	}
+
+    private void scanMediaStoreLibraryFile(String fp) {
+        if (!getFileExtention(fp).equals("")) {
+			sendDebugLogMsg(1, "I","MediaScanner invoked, fp="+fp);
+        	mMediaScannerConnection.scanFile(fp, null);
+		} else {
+			sendDebugLogMsg(1, "I","MediaScanner not invoked because file extention does not exists, fp="+fp);
+		}
+	};
+
+	private void deleteMediaStoreItem(Context c, String fp) {
+		ContentResolver resolver = c.getContentResolver();
+		Uri uri=null;
+		String ft=getFileExtention(fp);
+		if (!fp.equals("")) {
+			String mime_type= MimeTypeMap.getSingleton().getMimeTypeFromExtension(ft);
+			if (mime_type!=null) {
+				if (mime_type.startsWith("audio/")) uri=MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+				else if (mime_type.startsWith("image/")) uri=MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+				else if (mime_type.startsWith("video/")) uri=MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+				else uri=MediaStore.Files.getContentUri("external");
+				int dc=resolver.delete(uri, MediaStore.Images.Media.DATA + "=?", new String[]{fp} );
+				if (dc!=0) sendDebugLogMsg(1, "I", "MediaStore item was deleted, fp="+fp+", count="+dc);
+				else sendDebugLogMsg(1, "I", "MediaStore item was not deleted, fp="+fp);
+			}
+		}
+	}
+
+	private void listMediaStoreItem(Context c) {
+		ContentResolver resolver = c.getContentResolver();
+		Cursor cursor =null;
+		try {
+			cursor = resolver.query(MediaStore.Files.getContentUri("external") ,null , null, null, "_data");
+			while( cursor.moveToNext() ){
+				String file_path=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.DATA));
+				String display_name=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.DISPLAY_NAME));
+				long date_added=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.DATE_ADDED));
+				long date_modifiedx=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.DATE_MODIFIED));
+				long media_size=cursor.getLong(cursor.getColumnIndex( MediaStore.Images.Media.SIZE));
+				String media_title=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.TITLE));
+				String bu_name=cursor.getString(cursor.getColumnIndex( MediaStore.Images.Media.BUCKET_DISPLAY_NAME));
+				sendDebugLogMsg(1, "I", "MeidaStore fp="+display_name);
+			}
+
+		} finally {
+			if (cursor!=null) cursor.close();
+		}
+	}
+
+
+//	private void scanMediaStoreLibraryDirectory(String fp) {
+//		sendDebugLogMsg(1, "I","MediaScanner invoked, fp="+fp);
+//		mMediaScannerConnection.scanFile(fp, null);
+//	};
+
+//	private void scanMediaStoreLibraryFileStatic(String fp) {
+//		sendDebugLogMsg(1, "I","MediaScanner invoked, fp="+fp);
+//        MediaScannerConnection.scanFile(mContext, new String[]{fp}, null, null);
+//	};
+
+	static public String getFileExtention(String fp) {
+		String ft="", fn="";
+		if (fp.lastIndexOf("/")>=0) {
+			fn=fp.substring(fp.lastIndexOf("/")+1);
+		} else {
+			fn=fp;
+		}
+		if (fn.lastIndexOf(".") >= 0) {
+			ft = fn.substring(fn.lastIndexOf(".") + 1).toLowerCase();
+		}
+		return ft;
+	}
+
+	private boolean isFileDifferent(long f1_lm, long f1_fl,long f2_lm, long f2_fl) {
     	boolean result=false;
     	if (f1_fl==f2_fl) {
     		long td=Math.abs(f1_lm-f2_lm);
