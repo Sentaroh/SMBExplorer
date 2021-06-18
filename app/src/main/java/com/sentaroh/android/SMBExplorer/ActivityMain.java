@@ -43,6 +43,7 @@ import android.os.RemoteException;
 import android.os.storage.StorageManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -67,21 +68,27 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager.widget.ViewPager;
 
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SftpProgressMonitor;
 import com.sentaroh.android.SMBExplorer.Log.LogManagementFragment;
 import com.sentaroh.android.SMBExplorer.FileManager.MountPointHistoryItem;
 import com.sentaroh.android.Utilities3.AppUncaughtExceptionHandler;
 import com.sentaroh.android.Utilities3.CallBackListener;
 import com.sentaroh.android.Utilities3.ContextMenu.CustomContextMenu;
 import com.sentaroh.android.Utilities3.Dialog.CommonDialog;
+import com.sentaroh.android.Utilities3.MiscUtil;
 import com.sentaroh.android.Utilities3.NotifyEvent;
 import com.sentaroh.android.Utilities3.SafFile3;
 import com.sentaroh.android.Utilities3.SafManager3;
-import com.sentaroh.android.Utilities3.StringUtil;
 import com.sentaroh.android.Utilities3.SystemInfo;
 import com.sentaroh.android.Utilities3.ThemeUtil;
 import com.sentaroh.android.Utilities3.Widget.CustomViewPager;
 import com.sentaroh.android.Utilities3.Widget.CustomViewPagerAdapter;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.Externalizable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -100,8 +107,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Properties;
 
 import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_PROFILE_NAME;
 import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_LOCAL;
@@ -161,7 +170,7 @@ public class ActivityMain extends AppCompatActivity {
 		mActionBar.setHomeButtonEnabled(false);
 //		mGp.localBase=mGp.internalRootDirectory;
 
-        mGp.smbConfigList = SmbServerUtil.createSmbServerConfigList(mContext, mGp,false, null);
+        mGp.smbConfigList = RemoteServerUtil.createRemoteServerConfigList(mContext, mGp,false, null);
 
         if (ccMenu ==null) ccMenu = new CustomContextMenu(getResources(),getSupportFragmentManager());
 		mGp.commonDlg=new CommonDialog(mActivity, getSupportFragmentManager());
@@ -193,15 +202,72 @@ public class ActivityMain extends AppCompatActivity {
 
         cleanupCacheFile();
 
-//        try {
-//            File lf_rb=new File("/storage/emulated/0/\u00a0rb_file.txt");
-//            lf_rb.createNewFile();
-//            File lf_01=new File("/storage/emulated/0/\u000101_file.txt");
-//            lf_01.createNewFile();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        listMediaStoreItem(mContext);
+//        Thread th=new Thread() {
+//            @Override
+//            public void run() {
+//                try {
+//                    long b_time=System.currentTimeMillis();
+//                    JSch mJsch;
+//                    Session mSession;
+//                    ChannelSftp mChannel;
+//                    Log.v("SMBExplorer", "started");
+//                    mJsch = new JSch();
+//                    mSession = mJsch.getSession("android", "192.168.200.40", 22);
+//                    mSession.setConfig(new Properties());
+//                    mSession.setTimeout(30*1000);
+//                    mSession.setConfig("StrictHostKeyChecking", "no");
+//                    mSession.setPassword("fh146746");
+//
+////                    mSession.setConfig("compression_level", "0");
+//
+//                    mSession.connect();
+//                    mChannel = (ChannelSftp) mSession.openChannel("sftp");
+//                    mChannel.connect();
+//                    mChannel.cd("/data/share");
+//
+//                    File lf=new File("/sdcard/test.doc");
+//                    lf.delete();
+//                    FileOutputStream fos=new FileOutputStream(lf);
+//                    BufferedOutputStream bos=new BufferedOutputStream(fos, 1024*1024*2);
+//
+//                    SftpProgressMonitor mon= new SftpProgressMonitor() {
+//                        @Override
+//                        public void init(int i, String s, String s1, long l) {
+//                            Log.v("SMBExplorer", "init s="+s+", sl="+s1+", l="+l);
+//                        }
+//
+//                        @Override
+//                        public boolean count(long l) {
+//                            Log.v("SMBExplorer", "count l="+l);
+//                            return true;
+//                        }
+//
+//                        @Override
+//                        public void end() {
+//                            Log.v("SMBExplorer", "end");
+//                        }
+//                    };
+//                    mChannel.get("/data/share/aa.doc", bos, mon);
+//                    bos.close();
+//
+////                    InputStream is=mChannel.get("/data/share/aa.doc", mon);
+////
+////                    BufferedInputStream bin = new BufferedInputStream(is, 1024*1024*4);
+////
+////                    byte[] buff=new byte[1024*1024*2];
+////                    int rc=bin.read(buff,0,buff.length);
+////                    while(rc>0) {
+////                        rc=bin.read(buff,0,buff.length);
+////                        Log.v("SMBExplorer", "rc="+rc);
+////                    }
+//                    Log.v("SMBExplorer", "ended elapsed="+(System.currentTimeMillis()-b_time));
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        };
+//        th.start();
+
     }
 
     private void listMediaStoreItem(Context c) {
@@ -230,6 +296,7 @@ public class ActivityMain extends AppCompatActivity {
         @Override
         public void appUniqueProcess(Throwable ex, String strace) {
             mUtil.addLogMsg("E", strace);
+            mUtil.flushLog();
         }
     }
 
@@ -877,6 +944,17 @@ public class ActivityMain extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        mUtil.addDebugMsg(1, "I","onActivityResult entered, requestCode="+requestCode+", resultCode="+resultCode+", data="+data);
+//        try {
+//            mContext.getContentResolver().takePersistableUriPermission(
+//                    data.getData(),
+//                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+//            List<UriPermission> permissions = mContext.getContentResolver().getPersistedUriPermissions();
+//            for(UriPermission item:permissions) mUtil.addDebugMsg(1, "I", "uri="+item.toString());
+//
+//        } catch(Exception e) {
+//            e.printStackTrace();
+//        }
     }
 
     @Override
@@ -889,10 +967,10 @@ public class ActivityMain extends AppCompatActivity {
 		mUtil.addDebugMsg(1, "I","onOptionsItemSelected entered");
 		switch (item.getItemId()) {
 			case R.id.menu_top_export:
-                SmbServerUtil.exportSmbServerConfigListDlg(this, mGp, mGp.internalRootDirectory, SMBEXPLORER_PROFILE_NAME);
+                RemoteServerUtil.exportRemoteServerConfigListDlg(this, mGp, mGp.internalRootDirectory, SMBEXPLORER_PROFILE_NAME);
 				return true;
 			case R.id.menu_top_import:
-                SmbServerUtil.importSmbServerConfigDlg(this, mGp, mGp.internalRootDirectory, SMBEXPLORER_PROFILE_NAME);
+                RemoteServerUtil.importRemoteServerConfigDlg(this, mGp, mGp.internalRootDirectory, SMBEXPLORER_PROFILE_NAME);
 				return true;
             case R.id.menu_top_request_storage_permission:
                 requestStoragePermissions();
@@ -913,7 +991,7 @@ public class ActivityMain extends AppCompatActivity {
 				confirmTerminateApplication();
 				return true;
             case R.id.menu_top_edit_smb_server:
-                SmbServerListEditor sm=new SmbServerListEditor(mActivity, mGp);
+                RemoteServerListEditor sm=new RemoteServerListEditor(mActivity, mGp);
                 return true;
             case R.id.menu_top_refresh:
 //                sendMagicPacket("08:bd:43:f6:48:2a", "255.255.255.255");
@@ -1252,8 +1330,9 @@ public class ActivityMain extends AppCompatActivity {
             oos.writeUTF(mGp.localDirectory);
 
             oos.writeUTF(mGp.remoteMountpoint);
+            mUtil.addDebugMsg(1, "I", "saveTaskData remoteMountPoint="+mGp.remoteMountpoint);
             oos.writeUTF(mGp.remoteDirectory);
-            oos.writeObject(mGp.currentSmbServerConfig);
+            oos.writeObject(mGp.currentRemoteServerConfig);
 
             oos.writeObject(mGp.mountPointHistoryList);
             oos.writeObject(mGp.currentLocalStorage);
@@ -1266,6 +1345,7 @@ public class ActivityMain extends AppCompatActivity {
             mUtil.addDebugMsg(1, "I", "Task data was saved");
         } catch (IOException e) {
             e.printStackTrace();
+            mUtil.addDebugMsg(1, "I", "Task data was save error\n"+ MiscUtil.getStackTraceString(e));
         }
     }
 
@@ -1299,8 +1379,9 @@ public class ActivityMain extends AppCompatActivity {
             mGp.localDirectory=ois.readUTF();
 
             mGp.remoteMountpoint=ois.readUTF();
+            mUtil.addDebugMsg(1, "I", "restoreTaskData new remoteMountPoint="+mGp.remoteMountpoint);
             mGp.remoteDirectory=ois.readUTF();
-            mGp.currentSmbServerConfig= (SmbServerConfig) ois.readObject();
+            mGp.currentRemoteServerConfig = (RemoteServerConfig) ois.readObject();
 
             mGp.mountPointHistoryList= (ArrayList<MountPointHistoryItem>) ois.readObject();
             mGp.currentLocalStorage= (LocalStorage) ois.readObject();
@@ -1342,6 +1423,7 @@ public class ActivityMain extends AppCompatActivity {
             });
             mUtil.addDebugMsg(1, "I", "Task data was restored");
         } catch (Exception e) {
+            mUtil.addDebugMsg(1, "I", "Task data was restore error\n"+ MiscUtil.getStackTraceString(e));
             e.printStackTrace();
         }
     }

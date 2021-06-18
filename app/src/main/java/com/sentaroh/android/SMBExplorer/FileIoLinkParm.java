@@ -26,13 +26,31 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 import com.sentaroh.android.Utilities3.SafFile3;
 
+import static com.sentaroh.android.SMBExplorer.RemoteServerConfig.SERVER_TYPE_SFTP;
+import static com.sentaroh.android.SMBExplorer.RemoteServerConfig.SERVER_TYPE_SMB;
+
 public class FileIoLinkParm {
 	FileIoLinkParm () {}
-	
-    private String fromUrl="", fromDomain="", fromSmbLevel="3", fromUser="", fromPass="", fromBaseUrl="", fromName="";
+
+	private String fromServerType ="", toServerType="";
+	public void setFromServerType(String type) {
+        fromServerType =type;}
+    public String getFromServerType() {return fromServerType;}
+    public void setToServerType(String type) {toServerType=type;}
+    public String getToServerType() {return toServerType;}
+
+    public String getFromType(){return fromServerType;}
+    public String getToType(){return toServerType;}
+
+    public boolean isFromServerTypeSMB() {return getFromType().equals(SERVER_TYPE_SMB)?true:false;}
+    public boolean isFromServerTypeSFTP() {return getFromType().equals(SERVER_TYPE_SFTP)?true:false;}
+    public boolean isToServerTypeSMB() {return getToType().equals(SERVER_TYPE_SMB)?true:false;}
+    public boolean isToServerTypeSFTP() {return getToType().equals(SERVER_TYPE_SFTP)?true:false;}
+
+    private String fromUrl="", fromDomain="", fromSmbLevel="5", fromUser="", fromPass="", fromBaseUrl="", fromName="";
 	private boolean fromSmbOptionIpcSignEnforce=true;
     private boolean fromSmbOptionUseSMB2Negotiation=false;
-    private String toUrl="", toDomain="", toSmbLevel="3", toUser="", toPass="", toBaseUrl="", toFileName="";
+    private String toUrl="", toDomain="", toSmbLevel="5", toUser="", toPass="", toBaseUrl="", toFileName="";
     private boolean toSmbOptionIpcSignEnforce=true;
     private boolean toSmbOptionUseSMB2Negotiation=false;
 

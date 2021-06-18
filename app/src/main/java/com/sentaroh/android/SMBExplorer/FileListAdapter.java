@@ -281,7 +281,8 @@ public class FileListAdapter extends BaseAdapter {
     	            	holder.tv_modtime.setVisibility(TextView.GONE);
                 	}
                    	if(o.isDirectory()) {
-                	    if (o.getPath().startsWith("smb://")) holder.tv_size.setVisibility(TextView.GONE);
+                	    if (!o.getServerType().equals(FileListItem.SERVER_TYPE_LOCAL)) holder.tv_size.setVisibility(TextView.GONE);
+						else holder.tv_size.setVisibility(TextView.VISIBLE);
                    		holder.iv_image1.setImageResource(mIconImage[2]); //folder
                    		String ic=String.format("%3d item",o.getSubDirItemCount());
                    		holder.tv_count.setText(ic);

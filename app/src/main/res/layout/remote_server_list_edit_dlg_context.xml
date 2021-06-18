@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/remote_server_list_main_dlg_context_view"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    tools:ignore="DisableBaselineAlignment" >
+
+    <ImageButton
+        android:id="@+id/remote_server_list_edit_dlg_save"
+        android:layout_width="@dimen/context_button_width"
+        android:layout_height="@dimen/context_button_height"
+        android:layout_gravity="center_horizontal"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_64_save" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_add" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_copy" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_rename" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_delete" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_select_all" />
+
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        layout="@layout/context_button_unselect_all" />
+
+</LinearLayout>

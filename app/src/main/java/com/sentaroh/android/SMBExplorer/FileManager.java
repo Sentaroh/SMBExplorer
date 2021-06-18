@@ -53,9 +53,11 @@ import android.widget.TextView;
 
 import androidx.core.content.FileProvider;
 
+import com.jcraft.jsch.ChannelSftp;
 import com.sentaroh.android.Utilities3.ContextMenu.CustomContextMenu;
 import com.sentaroh.android.Utilities3.ContextMenu.CustomContextMenuItem;
 import com.sentaroh.android.Utilities3.Dialog.CommonDialog;
+import com.sentaroh.android.Utilities3.MiscUtil;
 import com.sentaroh.android.Utilities3.NotifyEvent;
 import com.sentaroh.android.Utilities3.SafFile3;
 import com.sentaroh.android.Utilities3.SafStorage3;
@@ -74,8 +76,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.Vector;
 
 import static com.sentaroh.android.SMBExplorer.Constants.FILEIO_PARM_COPY_LOCAL_TO_LOCAL;
 import static com.sentaroh.android.SMBExplorer.Constants.FILEIO_PARM_COPY_LOCAL_TO_REMOTE;
@@ -96,6 +100,8 @@ import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_LOCAL;
 import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_POS_LOCAL;
 import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_POS_REMOTE;
 import static com.sentaroh.android.SMBExplorer.Constants.SMBEXPLORER_TAB_REMOTE;
+import static com.sentaroh.android.SMBExplorer.RemoteServerConfig.SERVER_TYPE_SFTP;
+import static com.sentaroh.android.SMBExplorer.RemoteServerConfig.SERVER_TYPE_SMB;
 
 public class FileManager {
     private static Logger log= LoggerFactory.getLogger(FileManager.class);
@@ -265,6 +271,7 @@ public class FileManager {
     private MountPointHistoryItem getMountPointHistoryItem(String mp) {
 //        Thread.dumpStack();
         for(MountPointHistoryItem item:mGp.mountPointHistoryList) {
+            mUtil.addDebugMsg(1, "I", "getMountPointHistoryItem entry="+item.mp_name);
             if (item.mp_name.equals(mp)) {
                 mUtil.addDebugMsg(1,"I","getMountPointHistoryItem mp="+mp+", result=found");
                 return item;
@@ -440,8 +447,13 @@ public class FileManager {
                 setEmptyFolderView();
             }
         });
-        if (dir.equals("")) createRemoteFileList(RetrieveFileList.OPCD_FILE_LIST, url+"/",ne);
-        else createRemoteFileList(RetrieveFileList.OPCD_FILE_LIST, url+"/"+dir+"/",ne);
+        if (mGp.currentRemoteServerConfig.getType().equals(SERVER_TYPE_SMB)) {
+            if (dir.equals("")) createRemoteFileList(SERVER_TYPE_SMB, url+"/", ne);
+            else createRemoteFileList(SERVER_TYPE_SMB, url+"/"+dir+"/", ne);
+        } else {
+            if (dir.equals("")) createRemoteFileList(SERVER_TYPE_SFTP, url+"/", ne);
+            else createRemoteFileList(SERVER_TYPE_SFTP, url+"/"+dir+"/", ne);
+        }
     }
 
     private LocalStorage getLocalStorageItem(ArrayList<LocalStorage>lsl, String stg_name) {
@@ -865,7 +877,7 @@ public class FileManager {
                 }
                 if (sel_item.startsWith("---")) return;
 
-                SmbServerConfig pli=null;
+                RemoteServerConfig pli=null;
                 for (int i = 0; i<mGp.smbConfigList.size(); i++) {
                     if (mGp.smbConfigList.get(i).getName().equals(sel_item)) {
                         pli=mGp.smbConfigList.get(i);
@@ -879,7 +891,8 @@ public class FileManager {
                     updateDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListView, mGp.remoteFileListAdapter);
                     ArrayList<DirectoryHistoryItem> dhl=mphi.directory_history;
                     DirectoryHistoryItem dhi=dhl.get(dhl.size()-1);
-                    mGp.currentSmbServerConfig =pli;
+                    mGp.currentRemoteServerConfig =pli;
+                    mUtil.addDebugMsg(1, "I", "setRemoteDirBtnListener new remoteMountPoint="+mphi.mp_name);
                     mGp.remoteMountpoint =mphi.mp_name;
                     mGp.remoteDirectory =dhi.directory_name;
 
@@ -890,7 +903,8 @@ public class FileManager {
                 } else {
                     updateDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListView, mGp.remoteFileListAdapter);
                     mGp.tabHost.getTabWidget().getChildTabViewAt(SMBEXPLORER_TAB_POS_REMOTE).setEnabled(true);
-                    mGp.currentSmbServerConfig =pli;
+                    mGp.currentRemoteServerConfig =pli;
+                    mUtil.addDebugMsg(1, "I", "setRemoteDirBtnListener new remoteMountPoint="+turl);
                     mGp.remoteMountpoint = turl;
                     mGp.remoteDirectory ="";
                     addMountPointHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, new ArrayList<FileListItem>());
@@ -900,7 +914,14 @@ public class FileManager {
                     for (int j = 0; j < mGp.remoteFileListView.getChildCount(); j++)
                         mGp.remoteFileListView.getChildAt(j).setBackgroundColor(Color.TRANSPARENT);
                 }
+                setSpinnerSelectionEnabled(false);
 
+                mUiHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        setSpinnerSelectionEnabled(true);
+                    }
+                },500);
             }
             @Override
             public void onNothingSelected(AdapterView<?> arg0) {
@@ -939,6 +960,7 @@ public class FileManager {
 
     private void processRemoteUpButton() {
         MountPointHistoryItem mphi=getMountPointHistoryItem(mGp.remoteMountpoint);
+        mUtil.addDebugMsg(1, "I", "mphi.directory_history="+mphi.directory_history);
         mphi.directory_history.remove(mphi.directory_history.size()-1);
         DirectoryHistoryItem n_dhi=mphi.directory_history.get(mphi.directory_history.size()-1);
 
@@ -965,11 +987,13 @@ public class FileManager {
             @Override
             public void negativeResponse(Context context, Object[] objects) {}
         });
-        createRemoteFileList(RetrieveFileList.OPCD_FILE_LIST, mGp.remoteMountpoint +"/"+n_dhi.directory_name, ntfy);
+        if (mGp.currentRemoteServerConfig.getType().equals(SERVER_TYPE_SMB)) createRemoteFileList(SERVER_TYPE_SMB, mGp.remoteMountpoint +"/"+n_dhi.directory_name, ntfy);
+        else createRemoteFileList(SERVER_TYPE_SFTP, mGp.remoteMountpoint +"/"+n_dhi.directory_name, ntfy);
     }
 
     private void processRemoteTopButton() {
         MountPointHistoryItem mphi=getMountPointHistoryItem(mGp.remoteMountpoint);
+        mUtil.addDebugMsg(1, "I", "mphi.directory_history="+mphi.directory_history);
         DirectoryHistoryItem n_dhi=mphi.directory_history.get(0);
         mphi.directory_history.clear();
         mphi.directory_history.add(n_dhi);
@@ -997,13 +1021,18 @@ public class FileManager {
             @Override
             public void negativeResponse(Context context, Object[] objects) {}
         });
-        createRemoteFileList(RetrieveFileList.OPCD_FILE_LIST, mGp.remoteMountpoint +"/"+n_dhi.directory_name, ntfy);
+        if (mGp.currentRemoteServerConfig.getType().equals(SERVER_TYPE_SMB)) createRemoteFileList(SERVER_TYPE_SMB, mGp.remoteMountpoint +"/"+n_dhi.directory_name, ntfy);
+        else createRemoteFileList(SERVER_TYPE_SFTP, mGp.remoteMountpoint +mGp.currentRemoteServerConfig.getBaseDirectory(), ntfy);
     }
 
-    private String buildRemoteBase(SmbServerConfig pli) {
+    private String buildRemoteBase(RemoteServerConfig pli) {
         String url="", sep="";
-        if (!pli.getSmbPort().equals("")) sep=":";
-        url = "smb://"+pli.getSmbHost()+sep+pli.getSmbPort()+"/"+pli.getSmbShare() ;
+        if (pli.getType().equals(SERVER_TYPE_SMB)) {
+            if (!pli.getPort().equals("")) sep=":";
+            url = "smb://"+pli.getHost()+sep+pli.getPort()+"/"+pli.getSmbShare() ;
+        } else {
+            url = pli.getBaseUrl();
+        }
         return url;
     }
 
@@ -1023,14 +1052,14 @@ public class FileManager {
                     mActivity.setUiEnabled(false);
                     mUtil.addDebugMsg(1,"I","Local filelist item clicked :" + item.getName()+", dir="+mGp.localDirectory);
                     if (item.isDirectory()) {
-                        updateDirectoryHistoryItem(mGp.currentLocalStorage.storage_id, item.getPath(), mGp.localFileListView, mGp.localFileListAdapter);
+                        updateDirectoryHistoryItem(mGp.currentLocalStorage.storage_id, item.getParentPath(), mGp.localFileListView, mGp.localFileListAdapter);
                         NotifyEvent ntfy=new NotifyEvent(mContext);
                         ntfy.setListener(new NotifyEvent.NotifyEventListener() {
                             @Override
                             public void positiveResponse(Context context, Object[] objects) {
                                 ArrayList<FileListItem> tfl=(ArrayList<FileListItem>)objects[0];
                                 if (tfl==null) return;
-                                String t_dir=item.getPath()+"/"+item.getName();
+                                String t_dir=item.getParentPath()+"/"+item.getName();
                                 mGp.localDirectory =t_dir;//.replace(mGp.localBase,"");
                                 mGp.localFileListAdapter.setDataList(tfl);
                                 mGp.localFileListAdapter.notifyDataSetChanged();
@@ -1051,11 +1080,11 @@ public class FileManager {
                             public void negativeResponse(Context context, Object[] objects) {}
                         });
                         if (mGp.currentLocalStorage.storage_saf_file) {
-                            if (mGp.localDirectory.equals("")) createSafApiFileList(mGp.currentLocalStorage.storage_root, false, item.getPath()+"/"+item.getName(), ntfy);
-                            else createSafApiFileList(mGp.currentLocalStorage.storage_root, false, item.getPath()+"/"+item.getName(), ntfy);
+                            if (mGp.localDirectory.equals("")) createSafApiFileList(mGp.currentLocalStorage.storage_root, false, item.getParentPath()+"/"+item.getName(), ntfy);
+                            else createSafApiFileList(mGp.currentLocalStorage.storage_root, false, item.getParentPath()+"/"+item.getName(), ntfy);
                         } else {
-                            if (mGp.localDirectory.equals("")) createFileApiFileList(false, item.getPath()+"/"+item.getName(), ntfy);
-                            else createFileApiFileList(false, item.getPath()+"/"+item.getName(), ntfy);
+                            if (mGp.localDirectory.equals("")) createFileApiFileList(false, item.getParentPath()+"/"+item.getName(), ntfy);
+                            else createFileApiFileList(false, item.getParentPath()+"/"+item.getName(), ntfy);
                         }
                     } else {
                         if (isFileListItemSelected(mGp.localFileListAdapter)) {
@@ -1212,8 +1241,7 @@ public class FileManager {
         if (mGp.remoteFileListView==null) return;
         mGp.remoteFileListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view,
-                                    final int position, long id) {
+            public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 for (int j = 0; j < parent.getChildCount(); j++)
                     parent.getChildAt(j).setBackgroundColor(Color.TRANSPARENT);
                 if (!mActivity.isUiEnabled()) return;
@@ -1224,50 +1252,117 @@ public class FileManager {
                     mGp.remoteFileListAdapter.notifyDataSetChanged();
                 } else {
                     mActivity.setUiEnabled(false);
-                    if (item.isDirectory()) {
-                        NotifyEvent ne=new NotifyEvent(mContext);
-                        ne.setListener(new NotifyEvent.NotifyEventListener() {
-                            @Override
-                            public void positiveResponse(Context c,Object[] o) {
-                                String t_dir=item.getPath()+"/"+item.getName();
+                    if (mGp.currentRemoteServerConfig.getType().equals(SERVER_TYPE_SMB)) {
+                        if (item.isDirectory()) {
+                            NotifyEvent ne=new NotifyEvent(mContext);
+                            ne.setListener(new NotifyEvent.NotifyEventListener() {
+                                @Override
+                                public void positiveResponse(Context c,Object[] o) {
+                                    String t_dir=item.getParentPath()+"/"+item.getName();
 
-                                updateDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListView, mGp.remoteFileListAdapter);
+                                    updateDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListView, mGp.remoteFileListAdapter);
 
-                                mGp.remoteDirectory =t_dir.replace(mGp.remoteMountpoint +"/", "");
+                                    for(MountPointHistoryItem item:mGp.mountPointHistoryList) {
+                                        mUtil.addDebugMsg(1, "I", "mpentry="+item.mp_name+", dir_item="+item.directory_history);
+                                        if (item.directory_history!=null) {
+                                            for(DirectoryHistoryItem d_item:item.directory_history) {
+                                                mUtil.addDebugMsg(1, "I", "dir entry="+d_item.directory_name);
+                                            }
+                                        }
+                                    }
 
-                                addDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListAdapter.getDataList());
+                                    mGp.remoteDirectory =t_dir.replace(mGp.remoteMountpoint +"/", "");
 
-                                mGp.remoteFileListAdapter.setDataList((ArrayList<FileListItem>)o[0]);
-                                mGp.remoteFileListAdapter.notifyDataSetChanged();
-                                for (int j = 0; j < mGp.remoteFileListView.getChildCount(); j++)
-                                    mGp.remoteFileListView.getChildAt(j).setBackgroundColor(Color.TRANSPARENT);
+                                    addDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListAdapter.getDataList());
+
+                                    mGp.remoteFileListAdapter.setDataList((ArrayList<FileListItem>)o[0]);
+                                    mGp.remoteFileListAdapter.notifyDataSetChanged();
+                                    for (int j = 0; j < mGp.remoteFileListView.getChildCount(); j++)
+                                        mGp.remoteFileListView.getChildAt(j).setBackgroundColor(Color.TRANSPARENT);
 //								setFilelistCurrDir(mGp.remoteFileListDirSpinner,mGp.remoteMountpoint, mGp.remoteDirectory);
-                                setFileListPathName(mGp.remoteFileListPath,mGp.remoteMountpoint,mGp.remoteDirectory);
-                                setEmptyFolderView();
-                                mGp.remoteFileListView.setSelection(0);
+                                    setFileListPathName(mGp.remoteFileListPath,mGp.remoteMountpoint,mGp.remoteDirectory);
+                                    setEmptyFolderView();
+                                    mGp.remoteFileListView.setSelection(0);
 
-                                mActivity.setUiEnabled(true);
+                                    mActivity.setUiEnabled(true);
 
-                                mGp.remoteFileListTopBtn.setEnabled(true);
-                                mGp.remoteFileListUpBtn.setEnabled(true);
-                            }
-                            @Override
-                            public void negativeResponse(Context c,Object[] o) {
-                                mActivity.setUiEnabled(true);
-                            }
-                        });
-                        String t_dir=item.getPath()+"/"+item.getName();
-                        createRemoteFileList(RetrieveFileList.OPCD_FILE_LIST, item.getPath()+"/"+item.getName(),ne);
-                    } else {
-                        mActivity.setUiEnabled(true);
-                        if (isFileListItemSelected(mGp.remoteFileListAdapter)) {
-                            item.setChecked(!item.isChecked());
-                            mGp.remoteFileListAdapter.notifyDataSetChanged();
+                                    mGp.remoteFileListTopBtn.setEnabled(true);
+                                    mGp.remoteFileListUpBtn.setEnabled(true);
+                                }
+                                @Override
+                                public void negativeResponse(Context c,Object[] o) {
+                                    mActivity.setUiEnabled(true);
+                                }
+                            });
+                            String t_dir=item.getParentPath()+"/"+item.getName();
+                            createRemoteFileList(SERVER_TYPE_SMB, item.getParentPath()+"/"+item.getName(),ne);
                         } else {
+                            mActivity.setUiEnabled(true);
+                            if (isFileListItemSelected(mGp.remoteFileListAdapter)) {
+                                item.setChecked(!item.isChecked());
+                                mGp.remoteFileListAdapter.notifyDataSetChanged();
+                            } else {
 //				            view.setBackgroundColor(Color.DKGRAY);
-                            startRemoteFileViewerIntent(mGp.remoteFileListAdapter, item);
-                            //mGp.commonDlg.showCommonDialog(false,false,"E","","Remote file was not viewd.",null);
+                                startRemoteFileViewerIntent(mGp.remoteFileListAdapter, item);
+                                //mGp.commonDlg.showCommonDialog(false,false,"E","","Remote file was not viewd.",null);
+                            }
                         }
+                    } else {
+                        if (item.isDirectory()) {
+                            NotifyEvent ne=new NotifyEvent(mContext);
+                            ne.setListener(new NotifyEvent.NotifyEventListener() {
+                                @Override
+                                public void positiveResponse(Context c,Object[] o) {
+                                    String t_dir=item.getPath();
+
+                                    updateDirectoryHistoryItem(mGp.remoteMountpoint, item.getPath(), mGp.remoteFileListView, mGp.remoteFileListAdapter);
+
+                                    for(MountPointHistoryItem item:mGp.mountPointHistoryList) {
+                                        mUtil.addDebugMsg(1, "I", "mpentry="+item.mp_name+", dir_item="+item.directory_history);
+                                        if (item.directory_history!=null) {
+                                            for(DirectoryHistoryItem d_item:item.directory_history) {
+                                                mUtil.addDebugMsg(1, "I", "dir entry="+d_item.directory_name);
+                                            }
+                                        }
+                                    }
+
+                                    mGp.remoteDirectory =t_dir.replace(mGp.remoteMountpoint +"/", "");
+
+                                    addDirectoryHistoryItem(mGp.remoteMountpoint, mGp.remoteDirectory, mGp.remoteFileListAdapter.getDataList());
+
+                                    mGp.remoteFileListAdapter.setDataList((ArrayList<FileListItem>)o[0]);
+                                    mGp.remoteFileListAdapter.notifyDataSetChanged();
+                                    for (int j = 0; j < mGp.remoteFileListView.getChildCount(); j++)
+                                        mGp.remoteFileListView.getChildAt(j).setBackgroundColor(Color.TRANSPARENT);
+//								setFilelistCurrDir(mGp.remoteFileListDirSpinner,mGp.remoteMountpoint, mGp.remoteDirectory);
+                                    setFileListPathName(mGp.remoteFileListPath,mGp.remoteMountpoint,mGp.remoteDirectory);
+                                    setEmptyFolderView();
+                                    mGp.remoteFileListView.setSelection(0);
+
+                                    mActivity.setUiEnabled(true);
+
+                                    mGp.remoteFileListTopBtn.setEnabled(true);
+                                    mGp.remoteFileListUpBtn.setEnabled(true);
+                                }
+                                @Override
+                                public void negativeResponse(Context c,Object[] o) {
+                                    mActivity.setUiEnabled(true);
+                                }
+                            });
+                            createRemoteFileList(SERVER_TYPE_SFTP,
+                                    mGp.remoteMountpoint+item.getPath(),ne);
+                        } else {
+                            mActivity.setUiEnabled(true);
+                            if (isFileListItemSelected(mGp.remoteFileListAdapter)) {
+                                item.setChecked(!item.isChecked());
+                                mGp.remoteFileListAdapter.notifyDataSetChanged();
+                            } else {
+//				            view.setBackgroundColor(Color.DKGRAY);
+                                startRemoteFileViewerIntent(mGp.remoteFileListAdapter, item);
+                                //mGp.commonDlg.showCommonDialog(false,false,"E","","Remote file was not viewd.",null);
+                            }
+                        }
+
                     }
                 }
             }
@@ -1308,7 +1403,7 @@ public class FileManager {
 //                setAllFilelistItemUnChecked(fla);
             }
         });
-        if (mGp.currentTabName.equals(SMBEXPLORER_TAB_LOCAL) && item.isDirectory() && !item.getName().startsWith(".") && item.getPath().indexOf("/.")<0) {
+        if (mGp.currentTabName.equals(SMBEXPLORER_TAB_LOCAL) && item.isDirectory() && !item.getName().startsWith(".") && item.getParentPath().indexOf("/.")<0) {
             ccMenu.addMenuItem("Scan media file", R.drawable.context_button_media_file_scan).setOnClickListener(new CustomContextMenuItem.CustomContextMenuOnClickListener() {
                 @Override
                 public void onClick(CharSequence menuTitle) {
@@ -1343,7 +1438,7 @@ public class FileManager {
                     mt= MimeTypeMap.getSingleton().getMimeTypeFromExtension(fid);
 
                     Intent intent = new Intent(Intent.ACTION_SEND);
-                    File lf=new File(item.getPath()+"/"+item.getName());
+                    File lf=new File(item.getParentPath()+"/"+item.getName());
                     Uri uri =null;
                     if (Build.VERSION.SDK_INT>=26)  uri= FileProvider.getUriForFile(mContext, BuildConfig.APPLICATION_ID + ".provider", lf);
                     else uri=Uri.parse("file://"+lf.getPath());
@@ -1465,23 +1560,23 @@ public class FileManager {
                 sendMsgToProgDlg(hndl, "Start media file scan");
                 mScanDeleteCount=mScanUpdateCount=mScanAddCount=0;
                 ArrayList<File>fl=new ArrayList<File>();
-                File lf=new File(scan_dir.getPath()+"/"+scan_dir.getName());
+                File lf=new File(scan_dir.getParentPath()+"/"+scan_dir.getName());
                 getAllMediaFileInDirectory(fl, lf, true);
 
                 ArrayList<FileListItem> ml=new ArrayList<FileListItem>();
                 for(File item:fl ) {
                     FileListItem entry=null;
-                    entry=new FileListItem(item.getName(), false, item.length(), item.lastModified(), false, item.canRead(), item.canWrite(),
+                    entry=new FileListItem(FileListItem.SERVER_TYPE_LOCAL, item.getName(), false, item.length(), item.lastModified(), false, item.canRead(), item.canWrite(),
                             item.isHidden(),item.getParent(), 0);
                     ml.add(entry);
                 }
                 Collections.sort(ml, new Comparator<FileListItem>(){
                     @Override
                     public int compare(FileListItem l, FileListItem r) {
-                        return ((l.getPath()+"/"+l.getName())).compareToIgnoreCase((r.getPath()+"/"+r.getName()));
+                        return ((l.getParentPath()+"/"+l.getName())).compareToIgnoreCase((r.getParentPath()+"/"+r.getName()));
                     }
                 });
-                for(FileListItem entry:ml) mUtil.addDebugMsg(2,"I","Media file from FileSystem="+(entry.getPath()+"/"+entry.getName())+", size="+entry.getLength()+", lastModified="+entry.getLastModified());
+                for(FileListItem entry:ml) mUtil.addDebugMsg(2,"I","Media file from FileSystem="+(entry.getParentPath()+"/"+entry.getName())+", size="+entry.getLength()+", lastModified="+entry.getLastModified());
 
                 scanMediaStoreFileList(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, lf.getPath(), ml);
                 sendMsgToProgDlg(hndl, "Image file scan ended");
@@ -1492,8 +1587,8 @@ public class FileManager {
 
                 for(FileListItem item:ml) {
                     if (!item.isChecked()) {
-                        MediaScannerConnection.scanFile(mGp.context, new String[]{item.getPath()+"/"+item.getName()}, null, null);
-                        mUtil.addDebugMsg(2,"I","Scan for add initiated. fp="+item.getPath()+"/"+item.getName());
+                        MediaScannerConnection.scanFile(mGp.context, new String[]{item.getParentPath()+"/"+item.getName()}, null, null);
+                        mUtil.addDebugMsg(2,"I","Scan for add initiated. fp="+item.getParentPath()+"/"+item.getName());
                         mScanAddCount++;
                     }
                 }
@@ -1530,13 +1625,13 @@ public class FileManager {
                     long date_modified=ci.getLong(ci.getColumnIndex( MediaStore.Images.Media.DATE_MODIFIED));
                     long media_size=ci.getLong(ci.getColumnIndex( MediaStore.Images.Media.SIZE));
                     File mf=new File(file_path);
-                    FileListItem key=new FileListItem(mf.getName(), true, 0, date_modified, false, true,true,
+                    FileListItem key=new FileListItem(FileListItem.SERVER_TYPE_LOCAL, mf.getName(), true, 0, date_modified, false, true,true,
                             false,mf.getParent(), 0);
                     mUtil.addDebugMsg(2,"I","Media info frm MediaStore="+file_path+", size="+media_size+", lastModified="+date_modified);
                     int idx=Collections.binarySearch(ml, key, new Comparator<FileListItem>(){
                         @Override
                         public int compare(FileListItem l, FileListItem r) {
-                            return ((l.getPath()+"/"+l.getName())).compareToIgnoreCase((r.getPath()+"/"+r.getName()));
+                            return ((l.getParentPath()+"/"+l.getName())).compareToIgnoreCase((r.getParentPath()+"/"+r.getName()));
                         }
                     });
                     if (idx>=0) {
@@ -1579,7 +1674,7 @@ public class FileManager {
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                SafFile3 sf = new SafFile3(mContext, item.getPath() + "/" + item.getName());
+                SafFile3 sf = new SafFile3(mContext, item.getParentPath() + "/" + item.getName());
                 Uri uri=null;
 //                if (Build.VERSION.SDK_INT>=29) {
 //                    if (sf.isSafFile()) {
@@ -1593,10 +1688,10 @@ public class FileManager {
                 if (sf.isSafFile()) {
                     uri=sf.getUri();
                 } else {
-                    if (Build.VERSION.SDK_INT>=24) {
-                        uri= FileProvider.getUriForFile(mContext, BuildConfig.APPLICATION_ID+".provider", new File(item.getPath()+"/"+item.getName()));
+                    if (Build.VERSION.SDK_INT>=23) {
+                        uri= FileProvider.getUriForFile(mContext, BuildConfig.APPLICATION_ID+".provider", new File(item.getParentPath()+"/"+item.getName()));
                     } else {
-                        uri= Uri.fromFile(new File(item.getPath()+"/"+item.getName()));
+                        uri= Uri.fromFile(new File(item.getParentPath()+"/"+item.getName()));
                     }
                 }
                 intent.setDataAndType(uri, mt);
@@ -1657,23 +1752,33 @@ public class FileManager {
         }
     }
 
-    private void downloadRemoteFile(FileListAdapter fla, FileListItem item, String url, NotifyEvent p_ntfy) {
-        SmbServerConfig smb_item=mGp.smbConfigList.get(mGp.remoteFileListDirSpinner.getSelectedItemPosition());
+    private void downloadRemoteFile(FileListAdapter fla, FileListItem file_list_item, String url, NotifyEvent p_ntfy) {
+        RemoteServerConfig server_config=mGp.smbConfigList.get(mGp.remoteFileListDirSpinner.getSelectedItemPosition());
         mGp.fileioLinkParm.clear();
         FileIoLinkParm fio=new FileIoLinkParm();
-        fio.setFromDirectory(item.getPath());
-        fio.setFromName(item.getName());
-        fio.setFromSmbLevel(smb_item.getSmbLevel());
-        fio.setToDirectory(mGp.internalRootDirectory+"/Download");
-        fio.setToName(item.getName());
-        fio.setFromUser(mGp.currentSmbServerConfig.getSmbUser());
-        fio.setFromPass(mGp.currentSmbServerConfig.getSmbPass());
-        fio.setFromSmbOptionIpcSignEnforce(mGp.currentSmbServerConfig.isSmbOptionIpcSigningEnforced());
-        fio.setFromSmbOptionUseSMB2Negotiation(mGp.currentSmbServerConfig.isSmbOptionUseSMB2Negotiation());
-//        SafFile3 rt=mGp.safMgr.getRootSafFile("1CF8-3412");
+        fio.setFromServerType(server_config.getType());
+        if (server_config.isServerTypeSMB()) {
+            fio.setFromDirectory(file_list_item.getParentPath());
+            fio.setFromName(file_list_item.getName());
+            fio.setToDirectory(mGp.internalRootDirectory+"/Download");
+            fio.setToName(file_list_item.getName());
+            fio.setFromUser(server_config.getUser());
+            fio.setFromPass(server_config.getPassword());
+            fio.setFromSmbLevel(server_config.getSmbLevel());
+            fio.setFromSmbOptionIpcSignEnforce(server_config.isSmbOptionIpcSigningEnforced());
+            fio.setFromSmbOptionUseSMB2Negotiation(server_config.isSmbOptionUseSMB2Negotiation());
+        } else if (server_config.isServerTypeSFTP()) {
+            fio.setFromDirectory(url+file_list_item.getParentPath());
+            fio.setFromName(file_list_item.getName());
+            fio.setToDirectory(mGp.internalRootDirectory+"/Download");
+            fio.setToName(file_list_item.getName());
+            fio.setFromUser(server_config.getUser());
+            fio.setFromPass(server_config.getPassword());
+            fio.setFromSmbLevel(server_config.getSmbLevel());
+        }
 
         mGp.fileioLinkParm.add(fio);
-        startFileioTask(fla,FILEIO_PARM_DOWLOAD_REMOTE_FILE,mGp.fileioLinkParm, item.getName(),p_ntfy, mGp.internalRootDirectory);
+        startFileioTask(fla,FILEIO_PARM_DOWLOAD_REMOTE_FILE,mGp.fileioLinkParm, file_list_item.getName(),p_ntfy, mGp.internalRootDirectory);
     }
 
     private ThreadCtrl mTcFileIoTask=null;
@@ -1900,11 +2005,12 @@ public class FileManager {
                         FileIoLinkParm fio=new FileIoLinkParm();
                         fio.setToDirectory(base_dir);
                         fio.setToName(newName.getText().toString()+"/");
-                        fio.setToSmbLevel(mGp.currentSmbServerConfig.getSmbLevel());
-                        fio.setToUser(mGp.currentSmbServerConfig.getSmbUser());
-                        fio.setToPass(mGp.currentSmbServerConfig.getSmbPass());
-                        fio.setToSmbOptionIpcSignEnforce(mGp.currentSmbServerConfig.isSmbOptionIpcSigningEnforced());
-                        fio.setToSmbOptionUseSMB2Negotiation(mGp.currentSmbServerConfig.isSmbOptionUseSMB2Negotiation());
+                        fio.setToSmbLevel(mGp.currentRemoteServerConfig.getSmbLevel());
+                        fio.setToUser(mGp.currentRemoteServerConfig.getUser());
+                        fio.setToPass(mGp.currentRemoteServerConfig.getPassword());
+                        fio.setToSmbOptionIpcSignEnforce(mGp.currentRemoteServerConfig.isSmbOptionIpcSigningEnforced());
+                        fio.setToSmbOptionUseSMB2Negotiation(mGp.currentRemoteServerConfig.isSmbOptionUseSMB2Negotiation());
+                        fio.setToSmbLevel(mGp.currentRemoteServerConfig.getSmbLevel());
 
                         mGp.fileioLinkParm.add(fio);
                     }
@@ -1945,7 +2051,7 @@ public class FileManager {
 
         String info;
 
-        info = "Path="+item.getPath()+"\n";
+        info = "Path="+item.getParentPath()+"\n";
         info = info+
                 "Name="+item.getName()+"\n"+
                 "Directory : "+item.isDirectory()+"\n"+
@@ -2013,9 +2119,9 @@ public class FileManager {
                     int cmd=0;
                     if (mGp.currentTabName.equals(SMBEXPLORER_TAB_LOCAL)) {
                         FileIoLinkParm fio=new FileIoLinkParm();
-                        fio.setFromDirectory(from_item.getPath());
+                        fio.setFromDirectory(from_item.getParentPath());
                         fio.setFromName(from_item.getName());
-                        fio.setToDirectory(from_item.getPath());
+                        fio.setToDirectory(from_item.getParentPath());
                         fio.setToName(newName.getText().toString());
                         fio.setFromSafRoot(mGp.currentLocalStorage.storage_root);
                         fio.setToSafRoot(mGp.currentLocalStorage.storage_root);
@@ -2024,17 +2130,18 @@ public class FileManager {
                     } else {
                         cmd=FILEIO_PARM_REMOTE_RENAME;
                         FileIoLinkParm fio=new FileIoLinkParm();
-                        fio.setFromDirectory(from_item.getPath());
+                        fio.setFromDirectory(from_item.getParentPath());
                         if (from_item.isDirectory()) fio.setFromName(from_item.getName()+"/");
                         else fio.setFromName(from_item.getName());
-                        fio.setFromUser(mGp.currentSmbServerConfig.getSmbUser());
-                        fio.setFromPass(mGp.currentSmbServerConfig.getSmbPass());
+                        fio.setFromUser(mGp.currentRemoteServerConfig.getUser());
+                        fio.setFromPass(mGp.currentRemoteServerConfig.getPassword());
 
-                        fio.setToDirectory(from_item.getPath());
+                        fio.setToDirectory(from_item.getParentPath());
                         if (from_item.isDirectory()) fio.setToName(newName.getText().toString()+"/");
                         else fio.setToName(newName.getText().toString());
-                        fio.setToUser(mGp.currentSmbServerConfig.getSmbUser());
-                        fio.setToPass(mGp.currentSmbServerConfig.getSmbPass());
+                        fio.setToUser(mGp.currentRemoteServerConfig.getUser());
+                        fio.setToPass(mGp.currentRemoteServerConfig.getPassword());
+                        fio.setToSmbLevel(mGp.currentRemoteServerConfig.getSmbLevel());
                         mGp.fileioLinkParm.add(fio);
                     }
                     mUtil.addDebugMsg(1,"I","renameItem FILEIO task invoked.");
@@ -2079,7 +2186,7 @@ public class FileManager {
                         if (mGp.currentTabName.equals(SMBEXPLORER_TAB_LOCAL)) {
 //                            buildFileioLinkParm(mGp.fileioLinkParm,item.getPath(), "",item.getName(),"","","",true);
                             FileIoLinkParm fio=new FileIoLinkParm();
-                            fio.setToDirectory(item.getPath());
+                            fio.setToDirectory(item.getParentPath());
                             fio.setToName(item.getName());
                             fio.setToSafRoot(mGp.currentLocalStorage.storage_root);
                             mGp.fileioLinkParm.add(fio);
@@ -2087,14 +2194,14 @@ public class FileManager {
 //                            buildFileioLinkParm(mGp.fileioLinkParm,item.getPath(),
 //                                    "",item.getName(),"",mGp.smbUser,mGp.smbPass,true);
                             FileIoLinkParm fio=new FileIoLinkParm();
-                            fio.setToDirectory(item.getPath());
+                            fio.setToDirectory(item.getParentPath());
                             if (item.isDirectory()) fio.setToName(item.getName()+"/");
                             else fio.setToName(item.getName());
-                            fio.setToSmbLevel(mGp.currentSmbServerConfig.getSmbLevel());
-                            fio.setToUser(mGp.currentSmbServerConfig.getSmbUser());
-                            fio.setToPass(mGp.currentSmbServerConfig.getSmbPass());
-                            fio.setToSmbOptionIpcSignEnforce(mGp.currentSmbServerConfig.isSmbOptionIpcSigningEnforced());
-                            fio.setToSmbOptionUseSMB2Negotiation(mGp.currentSmbServerConfig.isSmbOptionUseSMB2Negotiation());
+                            fio.setToSmbLevel(mGp.currentRemoteServerConfig.getSmbLevel());
+                            fio.setToUser(mGp.currentRemoteServerConfig.getUser());
+                            fio.setToPass(mGp.currentRemoteServerConfig.getPassword());
+                            fio.setToSmbOptionIpcSignEnforce(mGp.currentRemoteServerConfig.isSmbOptionIpcSigningEnforced());
+                            fio.setToSmbOptionUseSMB2Negotiation(mGp.currentRemoteServerConfig.isSmbOptionUseSMB2Negotiation());
 
                             mGp.fileioLinkParm.add(fio);
                         }
@@ -2126,11 +2233,11 @@ public class FileManager {
             mGp.pasteInfo.pasteFromUrl=mGp.remoteMountpoint +"/"+mGp.remoteDirectory;;
             mGp.pasteInfo.isPasteFromLocal=false;
             mGp.pasteInfo.pasteFromBase=mGp.remoteMountpoint;
-            mGp.pasteInfo.pasteFromUser=mGp.currentSmbServerConfig.getSmbUser();
-            mGp.pasteInfo.pasteFromPass=mGp.currentSmbServerConfig.getSmbPass();
-            mGp.pasteInfo.pasteFromSmbLevel=mGp.currentSmbServerConfig.getSmbLevel();
-            mGp.pasteInfo.pasteFromSmbIpc=mGp.currentSmbServerConfig.isSmbOptionIpcSigningEnforced();
-            mGp.pasteInfo.pasteFromSmbSMB2Nego=mGp.currentSmbServerConfig.isSmbOptionUseSMB2Negotiation();
+            mGp.pasteInfo.pasteFromUser=mGp.currentRemoteServerConfig.getUser();
+            mGp.pasteInfo.pasteFromPass=mGp.currentRemoteServerConfig.getPassword();
+            mGp.pasteInfo.pasteFromSmbLevel=mGp.currentRemoteServerConfig.getSmbLevel();
+            mGp.pasteInfo.pasteFromSmbIpc=mGp.currentRemoteServerConfig.isSmbOptionIpcSigningEnforced();
+            mGp.pasteInfo.pasteFromSmbSMB2Nego=mGp.currentRemoteServerConfig.isSmbOptionUseSMB2Negotiation();
         }
         //Get selected item names
         mGp.pasteInfo.isPasteCopy=true;
@@ -2164,9 +2271,9 @@ public class FileManager {
             mGp.pasteInfo.pasteFromUrl=mGp.remoteMountpoint +"/"+mGp.remoteDirectory;
             mGp.pasteInfo.isPasteFromLocal=false;
             mGp.pasteInfo.pasteFromBase=mGp.remoteMountpoint;
-            mGp.pasteInfo.pasteFromUser=mGp.currentSmbServerConfig.getSmbUser();
-            mGp.pasteInfo.pasteFromPass=mGp.currentSmbServerConfig.getSmbPass();
-            mGp.pasteInfo.pasteFromSmbLevel=mGp.currentSmbServerConfig.getSmbLevel();
+            mGp.pasteInfo.pasteFromUser=mGp.currentRemoteServerConfig.getUser();
+            mGp.pasteInfo.pasteFromPass=mGp.currentRemoteServerConfig.getPassword();
+            mGp.pasteInfo.pasteFromSmbLevel=mGp.currentRemoteServerConfig.getSmbLevel();
         }
         //Get selected item names
         mGp.pasteInfo.isPasteCopy=false;
@@ -2253,8 +2360,8 @@ public class FileManager {
             if (mGp.pasteInfo.pasteFromSafRoot!=null && mGp.pasteInfo.pasteFromSafRoot.isSafFile()) {
 //                String from_dir = "/" + pasteFromSafRoot.getName() + pasteFromList.get(0).getPath();
 //                String from_path = "/" + pasteFromSafRoot.getName() + pasteFromList.get(0).getPath() + "/" + pasteFromList.get(0).getName();
-                String from_dir = mGp.pasteInfo.pasteFromList.get(0).getPath();
-                String from_path =mGp.pasteInfo.pasteFromList.get(0).getPath() + "/" + mGp.pasteInfo.pasteFromList.get(0).getName();
+                String from_dir = mGp.pasteInfo.pasteFromList.get(0).getParentPath();
+                String from_path =mGp.pasteInfo.pasteFromList.get(0).getParentPath() + "/" + mGp.pasteInfo.pasteFromList.get(0).getName();
                 mUtil.addDebugMsg(1, "I", "isValidPasteDestination(Saf) from_dir=" + from_dir + ", from_path=" + from_path + ", to_dir=" + to_dir);
                 if (!to_dir.equals(from_dir)) {
                     if (!from_path.equals(to_dir)) {
@@ -2266,8 +2373,8 @@ public class FileManager {
             } else if (mGp.pasteInfo.pasteFromSafRoot!=null && !mGp.pasteInfo.pasteFromSafRoot.isSafFile()) {
 //                String from_dir = "/" + pasteFromSafRoot.getName() + pasteFromList.get(0).getPath();
 //                String from_path = "/" + pasteFromSafRoot.getName() + pasteFromList.get(0).getPath() + "/" + pasteFromList.get(0).getName();
-                String from_dir = mGp.pasteInfo.pasteFromList.get(0).getPath();
-                String from_path =mGp.pasteInfo.pasteFromList.get(0).getPath() + "/" + mGp.pasteInfo.pasteFromList.get(0).getName();
+                String from_dir = mGp.pasteInfo.pasteFromList.get(0).getParentPath();
+                String from_path =mGp.pasteInfo.pasteFromList.get(0).getParentPath() + "/" + mGp.pasteInfo.pasteFromList.get(0).getName();
                 mUtil.addDebugMsg(1, "I", "isValidPasteDestination(Local) from_dir=" + from_dir + ", from_path=" + from_path + ", to_dir=" + to_dir);
                 if (!to_dir.equals(from_dir)) {
                     if (!from_path.equals(to_dir)) {
@@ -2277,8 +2384,8 @@ public class FileManager {
                     }
                 }
             } else {
-                String from_dir=mGp.pasteInfo.pasteFromList.get(0).getPath();
-                String from_path=mGp.pasteInfo.pasteFromList.get(0).getPath()+"/"+mGp.pasteInfo.pasteFromList.get(0).getName();
+                String from_dir=mGp.pasteInfo.pasteFromList.get(0).getParentPath();
+                String from_path=mGp.pasteInfo.pasteFromList.get(0).getParentPath()+"/"+mGp.pasteInfo.pasteFromList.get(0).getName();
                 mUtil.addDebugMsg(1,"I", "isValidPasteDestination(Remote) from_dir="+from_dir+", from_path="+from_path+", to_dir="+to_dir);
                 if (!to_dir.equals(from_dir)) {
                     if (!from_path.equals(to_dir)) {
@@ -2333,7 +2440,7 @@ public class FileManager {
                 @Override
                 public void negativeResponse(Context c,Object[] o) {	}
             });
-            checkRemoteFileExists(mGp.remoteMountpoint, d_list, mGp.currentSmbServerConfig, ntfy);
+            checkRemoteFileExists(mGp.remoteMountpoint, d_list, mGp.currentRemoteServerConfig, ntfy);
         }
     }
 
@@ -2342,10 +2449,10 @@ public class FileManager {
         for (int i=0;i<mGp.pasteInfo.pasteFromList.size();i++) {
             fi=mGp.pasteInfo.pasteFromList.get(i);
             FileIoLinkParm fio=new FileIoLinkParm();
-            fio.setFromDirectory(fi.getPath());
+            fio.setFromDirectory(fi.getParentPath());
             fio.setToDirectory(to_dir);
 
-            if (fi.getPath().startsWith("smb://")) {
+            if (fi.getParentPath().startsWith("smb://")) {
                 fio.setFromBaseDirectory(fi.getBaseUrl());
                 fio.setFromUser(mGp.pasteInfo.pasteFromUser);
                 fio.setFromPass(mGp.pasteInfo.pasteFromPass);
@@ -2362,17 +2469,17 @@ public class FileManager {
 
             if (to_dir.startsWith("smb://")) {
                 fio.setToBaseDirectory(mGp.remoteMountpoint);
-                fio.setToUser(mGp.currentSmbServerConfig.getSmbUser());
-                fio.setToPass(mGp.currentSmbServerConfig.getSmbPass());
-                fio.setToSmbLevel(mGp.currentSmbServerConfig.getSmbLevel());
-                fio.setToSmbOptionIpcSignEnforce(mGp.currentSmbServerConfig.isSmbOptionIpcSigningEnforced());
-                fio.setToSmbOptionUseSMB2Negotiation(mGp.currentSmbServerConfig.isSmbOptionUseSMB2Negotiation());
+                fio.setToUser(mGp.currentRemoteServerConfig.getUser());
+                fio.setToPass(mGp.currentRemoteServerConfig.getPassword());
+                fio.setToSmbLevel(mGp.currentRemoteServerConfig.getSmbLevel());
+                fio.setToSmbOptionIpcSignEnforce(mGp.currentRemoteServerConfig.isSmbOptionIpcSigningEnforced());
+                fio.setToSmbOptionUseSMB2Negotiation(mGp.currentRemoteServerConfig.isSmbOptionUseSMB2Negotiation());
                 if (fi.isDirectory()) fio.setToName(fi.getName()+"/");
                 else fio.setToName(fi.getName());
             } else {
                 fio.setToSafRoot(mGp.currentLocalStorage.storage_root);
 //                fio.setToBaseDirectory(mGp.localBase);
-                if (fi.getPath().startsWith("smb://")) {
+                if (fi.getParentPath().startsWith("smb://")) {
                     fio.setToName(fi.getName()+"/");
                 } else {
                     fio.setToName(fi.getName());
@@ -2675,14 +2782,14 @@ public class FileManager {
                                                 "Last mod Local=" + sdf.format(tfi.getLastModified())+", "+
                                                 "Last mod UTC=" + ut+", "+
                                                 "Last mod EPOC=" + et+", "+
-                                                "path=" + tfi.getPath()+", ");
+                                                "path=" + tfi.getParentPath()+", ");
                                     } else {
                                         mUtil.addDebugMsg(3,"I","File=" + tfi.getName()+", "+
                                                 "length=" + tfi.getLength()+", "+
                                                 "Last mod Local=" + sdf.format(tfi.getLastModified())+", "+
                                                 "Last mod UTC=" + ut+", "+
                                                 "Last mod EPOC=" + et+", "+
-                                                "path=" + tfi.getPath()+", ");
+                                                "path=" + tfi.getParentPath()+", ");
                                     }
                                 }
                             } else {
@@ -2694,7 +2801,12 @@ public class FileManager {
                     } catch (Exception e) {
                         e.printStackTrace();
                         mUtil.addLogMsg("E",e.toString());
-                        showDialogMsg("E",mContext.getString(R.string.msgs_local_file_list_create_error), e.getMessage());
+                        mUiHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                showDialogMsg("E",mContext.getString(R.string.msgs_local_file_list_create_error), e.getMessage());
+                            }
+                        });
                         dir=null;
                     }
                 }
@@ -2782,14 +2894,14 @@ public class FileManager {
                                             "Last mod Local=" + sdf.format(tfi.getLastModified())+", "+
                                             "Last mod UTC=" + ut+", "+
                                             "Last mod EPOC=" + et+", "+
-                                            "path=" + tfi.getPath()+", ");
+                                            "path=" + tfi.getParentPath()+", ");
                                 } else {
                                     mUtil.addDebugMsg(3,"I","File=" + tfi.getName()+", "+
                                             "length=" + tfi.getLength()+", "+
                                             "Last mod Local=" + sdf.format(tfi.getLastModified())+", "+
                                             "Last mod UTC=" + ut+", "+
                                             "Last mod EPOC=" + et+", "+
-                                            "path=" + tfi.getPath()+", ");
+                                            "path=" + tfi.getParentPath()+", ");
                                 }
 //                                mUtil.addDebugMsg(1,"I","fp="+ff.getPath()+", elapse="+(System.currentTimeMillis()-b_time_s));
                             }
@@ -2825,9 +2937,68 @@ public class FileManager {
         th.start();
     }
 
-    private void createRemoteFileList(String opcd, final String url, final NotifyEvent parent_event) {
-        mUtil.addDebugMsg(1,"I","Create remote filelist remote url:"+url);
-//        Thread.dumpStack();
+    private void createRemoteFileList(String type, final String url, final NotifyEvent parent_event) {
+        if (type.equals(SERVER_TYPE_SMB)) createRemoteFileListSmb(url, parent_event);
+        else createRemoteFileListSftp(url, parent_event);
+    }
+
+    private void createRemoteFileListSftp(String url, NotifyEvent parent_event) {
+        mUtil.addDebugMsg(1,"I","createRemoteFileListSftp url:"+url);
+        Dialog pd=CommonDialog.showProgressSpinIndicator(mActivity);
+        pd.show();
+        final Handler hndl=new Handler();
+        Thread th=new Thread() {
+            @Override
+            public void run() {
+                try {
+                    SftpFile sf=new SftpFile(url, mGp.currentRemoteServerConfig.getUser(), mGp.currentRemoteServerConfig.getPassword(), true);
+                    ArrayList<SftpFile> fl=sf.listFiles();
+                    mUtil.addDebugMsg(1,"I","createRemoteFileListSftp list ended, size="+fl.size());
+
+                    ArrayList<FileListItem> out_fl=new ArrayList<FileListItem>();
+
+                    for(SftpFile item:fl) {
+                        String fn=item.getName();
+                        String base_dir=SftpFile.removeRedundantPathSeparator(mGp.currentRemoteServerConfig.getBaseDirectory());
+                        if (base_dir.endsWith("/")) base_dir=base_dir.substring(0, base_dir.length()-1);
+                        String parent=item.getPath().substring(0,item.getPath().lastIndexOf("/"));
+                        if (parent.equals(base_dir)) parent="/";
+                        else parent=parent.substring(base_dir.length()+1);
+                        FileListItem fli=new FileListItem(FileListItem.SERVER_TYPE_SFTP, fn,
+                                item.isDirectory(),
+                                item.getLength(),
+                                item.getLastModified(),
+                                false,
+                                parent);
+
+                        if (item.isDirectory()) {
+                            int ch_cnt=item.getChildItemCount();
+                            fli.setSubDirItemCount(ch_cnt);
+                        }
+                        out_fl.add(fli);
+                    }
+                    mUtil.addDebugMsg(1,"I","createRemoteFileListSftp reformat ended, size="+out_fl.size());
+                    hndl.post(new Runnable(){
+                        @Override
+                        public void run() {
+                            pd.dismiss();
+                            parent_event.notifyToListener(true, new Object[]{out_fl});
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    pd.dismiss();
+                    CommonDialog.showCommonDialog(mActivity.getSupportFragmentManager(), false, "E", "Error",
+                            e.getMessage()+"\n"+ MiscUtil.getStackTraceString(e), null);
+
+                }
+            }
+        };
+        th.start();
+    }
+
+    private void createRemoteFileListSmb(final String url, final NotifyEvent parent_event) {
+        mUtil.addDebugMsg(1,"I","createRemoteFileListSmb url:"+url);
         final NotifyEvent n_event=new NotifyEvent(mContext);
         n_event.setListener(new NotifyEvent.NotifyEventListener() {
             @Override
@@ -2868,8 +3039,7 @@ public class FileManager {
                         mContext.getString(R.string.msgs_remote_file_list_create_error),(String)o[0]);
             }
         });
-        SmbServerUtil.createSmbServerFileList(mActivity, mGp, opcd, url, mGp.currentSmbServerConfig,n_event);
-
+        RemoteServerUtil.createRemoteServerFileList(mActivity, mGp, RetrieveFileList.OPCD_FILE_LIST, url, mGp.currentRemoteServerConfig, n_event);
     }
 
     private static String buildFullPath(String base, String dir) {
@@ -2887,7 +3057,7 @@ public class FileManager {
         return result;
     }
 
-    private void checkRemoteFileExists(String url, ArrayList<String> d_list, SmbServerConfig sc, final NotifyEvent n_event) {
+    private void checkRemoteFileExists(String url, ArrayList<String> d_list, RemoteServerConfig sc, final NotifyEvent n_event) {
         final ArrayList<FileListItem> remoteFileList=new ArrayList<FileListItem>();
 
         final ThreadCtrl tc = new ThreadCtrl();
@@ -2995,25 +3165,25 @@ public class FileManager {
     static public FileListItem createNewFilelistItem(String base_url, FileListItem tfli) {
         FileListItem fi=null;
         if (tfli.isDirectory()) {
-            fi= new FileListItem(tfli.getName(),
+            fi= new FileListItem(FileListItem.SERVER_TYPE_SMB, tfli.getName(),
                     true,
                     0,
                     tfli.getLastModified(),
                     false,
                     tfli.canRead(),tfli.canWrite(),
-                    tfli.isHidden(),tfli.getPath(),
+                    tfli.isHidden(),tfli.getParentPath(),
                     tfli.getListLevel());
             fi.setSubDirItemCount(tfli.getSubDirItemCount());
             fi.setHasExtendedAttr(tfli.hasExtendedAttr());
             fi.setBaseUrl(base_url);;
         } else {
-            fi=new FileListItem(tfli.getName(),
+            fi=new FileListItem(FileListItem.SERVER_TYPE_SMB, tfli.getName(),
                     false,
                     tfli.getLength(),
                     tfli.getLastModified(),
                     false,
                     tfli.canRead(),tfli.canWrite(),
-                    tfli.isHidden(),tfli.getPath(),
+                    tfli.isHidden(),tfli.getParentPath(),
                     tfli.getListLevel());
             fi.setHasExtendedAttr(tfli.hasExtendedAttr());
             fi.setBaseUrl(base_url);;
@@ -3026,7 +3196,7 @@ public class FileManager {
         if (dir) {
             String fn=tfli.getName();
             boolean is_hidden=fn.startsWith(".")?true:false;
-            final FileListItem fi= new FileListItem(fn,
+            final FileListItem fi= new FileListItem(FileListItem.SERVER_TYPE_LOCAL, fn,
                     true,
                     -1,
                     tfli.lastModified(),
@@ -3061,7 +3231,7 @@ public class FileManager {
             long[] lmod_length=tfli.getLastModifiedAndLength();
             String fn=tfli.getName();
             boolean is_hidden=fn.startsWith(".")?true:false;
-            FileListItem fi=new FileListItem(fn,
+            FileListItem fi=new FileListItem(FileListItem.SERVER_TYPE_LOCAL, fn,
                     false,
                     lmod_length[1],
                     lmod_length[0],
@@ -3080,7 +3250,7 @@ public class FileManager {
         if (dir) {
             String fn=tfli.getName();
             boolean is_hidden=fn.startsWith(".")?true:false;
-            final FileListItem fi= new FileListItem(fn,
+            final FileListItem fi= new FileListItem(FileListItem.SERVER_TYPE_LOCAL, fn,
                     true,
                     -1,
                     tfli.lastModified(),
@@ -3114,7 +3284,7 @@ public class FileManager {
         } else {
             String fn=tfli.getName();
             boolean is_hidden=fn.startsWith(".")?true:false;
-            FileListItem fi=new FileListItem(fn,
+            FileListItem fi=new FileListItem(FileListItem.SERVER_TYPE_LOCAL, fn,
                     false,
                     tfli.length(),
                     tfli.lastModified(),
@@ -3133,7 +3303,7 @@ public class FileManager {
         String fn=tfli.getName();
         boolean is_hidden=fn.startsWith(".")?true:false;
         if (dir) {
-            final FileListItem fi= new FileListItem(tfli.getName(),
+            final FileListItem fi= new FileListItem(FileListItem.SERVER_TYPE_LOCAL, tfli.getName(),
                     true,
                     -1,
                     tfli.lastModified(cpc),
@@ -3169,7 +3339,7 @@ public class FileManager {
             return fi;
         } else {
             long[] lmod_length=tfli.getLastModifiedAndLength(cpc);
-            final FileListItem fi=new FileListItem(tfli.getName(),
+            final FileListItem fi=new FileListItem(FileListItem.SERVER_TYPE_LOCAL, tfli.getName(),
                     false,
                     lmod_length[1],
                     lmod_length[0],
@@ -3206,7 +3376,7 @@ public class FileManager {
             String fp=tfli.getParent();
             if (fp.endsWith("/")) fp=fp.substring(0,fp.lastIndexOf("/"));
             if (tfli.isDirectory()) {
-                fi= new FileListItem(tfli.getName(),
+                fi= new FileListItem(FileListItem.SERVER_TYPE_SMB, tfli.getName(),
                         true,
                         0,
                         tfli.getLastModified(),
@@ -3218,7 +3388,7 @@ public class FileManager {
                 fi.setHasExtendedAttr(has_ea);
                 fi.setBaseUrl(base_url);
             } else {
-                fi=new FileListItem(tfli.getName(),
+                fi=new FileListItem(FileListItem.SERVER_TYPE_SMB, tfli.getName(),
                         false,
                         tfli.length(),
                         tfli.getLastModified(),

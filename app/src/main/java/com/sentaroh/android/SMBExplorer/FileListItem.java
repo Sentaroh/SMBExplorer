@@ -47,6 +47,7 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 	private boolean canRead=false;
 	private boolean isHidden=false;
 	private boolean canWrite=false;
+	private String parentFilePath;
 	private String filePath;
 	private boolean childListExpanded=false;
 	private int listLevel=0;
@@ -57,10 +58,18 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 	private boolean enableItem=true;
 	private boolean hasExtendedAttr=false;
 
+	private String serverType =SERVER_TYPE_LOCAL;
+
+	public final static String SERVER_TYPE_SMB =RemoteServerConfig.SERVER_TYPE_SMB;
+	public final static String SERVER_TYPE_SFTP =RemoteServerConfig.SERVER_TYPE_SFTP;
+	public final static String SERVER_TYPE_LOCAL ="LOCAL";
+	public void setServerType(String type) {serverType =type;}
+	public String getServerType() {return serverType;}
+
 	private String fileSize="0", fileLastModDate="", fileLastModTime="";
 	
 	public void dump(String id) {
-		log.info("FileName="+fileName+", filePath="+filePath);
+		log.info("FileName="+fileName+", parentFilePath="+ parentFilePath+", filePath="+filePath);
         log.info("isDir="+ directory +", Length="+fileLength+
 				", lastModdate="+lastModdate+", isChecked="+isChecked+
 				", canRead="+canRead+",canWrite="+canWrite+", isHidden="+isHidden+", hasExtendedAttr="+hasExtendedAttr);
@@ -74,7 +83,7 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 		fileName = fn;
 	}
 	
-	public FileListItem(String file_name, boolean directory, long file_size, long last_modified, boolean checked,
+	public FileListItem(String type, String file_name, boolean directory, long file_size, long last_modified, boolean checked,
 		                boolean can_read,boolean can_write,boolean hidden, String parent_path, int lvl){
 		fileName = file_name;
 		fileLength = file_size;
@@ -84,15 +93,18 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 		canRead=can_read;
 		canWrite=can_write;
 		isHidden=hidden;
-		filePath=parent_path;
+		parentFilePath =parent_path;
+		if (parentFilePath.equals("/")) filePath=parentFilePath.concat(fileName);
+		else filePath=parentFilePath.concat("/").concat(fileName);
 		listLevel=lvl;
         fileSize=MiscUtil.convertFileSize(fileLength);
         String[] dt=StringUtil.convDateTimeTo_YearMonthDayHourMinSec(lastModdate).split(" ");
         fileLastModDate=dt[0];
         fileLastModTime=dt[1];
+        setServerType(type);
 	}
 
-    public FileListItem(String file_name, boolean directory, long file_size, long last_modified, boolean checked,
+    public FileListItem(String type, String file_name, boolean directory, long file_size, long last_modified, boolean checked,
                         String parent_path){
         fileName = file_name;
         fileLength = file_size;
@@ -102,12 +114,15 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
         canRead=true;
         canWrite=true;
         isHidden=false;
-        filePath=parent_path;
+        parentFilePath =parent_path;
+		if (parentFilePath.equals("/")) filePath=parentFilePath.concat(fileName);
+		else filePath=parentFilePath.concat("/").concat(fileName);
         listLevel=0;
         fileSize=MiscUtil.convertFileSize(fileLength);
         String[] dt=StringUtil.convDateTimeTo_YearMonthDayHourMinSec(lastModdate).split(" ");
         fileLastModDate=dt[0];
         fileLastModTime=dt[1];
+		setServerType(type);
     }
     public String getName(){return fileName;}
 	public long getLength(){return fileLength;}
@@ -142,6 +157,7 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 		this.canWrite=canWrite;
 	}
 	public boolean isHidden(){return isHidden;}
+	public String getParentPath(){return parentFilePath;}
 	public String getPath(){return filePath;}
 	public void setChildListExpanded(boolean p){childListExpanded=p;}
 	public boolean isChildListExpanded(){return childListExpanded;}
@@ -166,15 +182,10 @@ public class FileListItem implements Cloneable, Serializable, Comparable<FileLis
 
 	@Override
 	public int compareTo(FileListItem o) {
-        if(this.fileName != null) {
-            String cmp_c="F",cmp_n="F";
-            if (directory) cmp_c="D";
-            if (o.isDirectory()) cmp_n="D";
-            cmp_c+=filePath;
-            cmp_n+=o.getPath();
-            if (!cmp_c.equals(cmp_n)) return cmp_c.compareToIgnoreCase(cmp_n);
-            return fileName.compareToIgnoreCase(o.getName());
-        } else throw new IllegalArgumentException();
+		String o_prefix="F", n_prefix="F";
+		if (o.isDirectory()) o_prefix="D";
+		if (this.directory) n_prefix="D";
+		return (o_prefix.concat(o.getName())).compareToIgnoreCase(n_prefix.concat(this.fileName));
 	}
 
     @Override

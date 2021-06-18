@@ -32,6 +32,7 @@ import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Build;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -230,8 +231,12 @@ public class FileIO extends Thread {
 				result=copyMoveLocalToRemote(true, smb_auth_to, fiop.getFromDirectory()+"/"+fiop.getFromName(), fiop.getToDirectory()+"/"+fiop.getToName());
 				break;
 			case FILEIO_PARM_DOWLOAD_REMOTE_FILE:
-                smb_auth_from =createJcifsAuth(fiop.getFromSmbLevel(), fiop.getFromDomain(), fiop.getFromUser(), fiop.getFromPass(), fiop.isFromSmbOptionIpcSignEnforce(), fiop.isFromSmbOptionUseSMB2Negotiation());
-                result=downloadRemoteFile(smb_auth_from, fiop.getFromDirectory()+"/"+fiop.getFromName(), fiop.getToDirectory()+"/"+fiop.getToName());
+				if (fiop.isFromServerTypeSMB()) {
+					smb_auth_from =createJcifsAuth(fiop.getFromSmbLevel(), fiop.getFromDomain(), fiop.getFromUser(), fiop.getFromPass(), fiop.isFromSmbOptionIpcSignEnforce(), fiop.isFromSmbOptionUseSMB2Negotiation());
+					result=downloadRemoteFile(smb_auth_from, fiop.getFromDirectory()+"/"+fiop.getFromName(), fiop.getToDirectory()+"/"+fiop.getToName());
+				} else if (fiop.isFromServerTypeSFTP()) {
+					result=downloadRemoteFileBySftp(fiop);
+				}
 				break;
 	
 			default:
@@ -239,7 +244,71 @@ public class FileIO extends Thread {
 		};
 		return result;
 	}
-	
+
+	private boolean downloadRemoteFile(JcifsAuth smb_auth, String fromUrl, String toUrl)  {
+		JcifsFile hf,hfd;
+		SafFile3 tf ;
+		boolean result = false;
+		sendDebugLogMsg(1,"I","Download Remote file, from item=",fromUrl,", to item=",toUrl);
+		try {
+			hf = new JcifsFile(fromUrl ,smb_auth);
+			if (hf.getAttributes()<16384) { //no EA, copy was done
+				makeLocalDirsByFilePath(toUrl);
+				result=true;
+				tf=new SafFile3(mContext, toUrl);
+				if (!isFileDifferent(hf.getLastModified(), hf.length(), tf.lastModified(), tf.length())) {
+					sendDebugLogMsg(1,"I","Download was cancelled because file does not changed.");
+				} else {
+					result= copyMoveFileRemoteToLocat(false, hf, tf, fromUrl, toUrl);//, "Downloading");
+				}
+			} else {
+				result=false;
+				sendLogMsg("E","EA founded, copy canceled. path=",fromUrl);
+				fileioThreadCtrl.setThreadMessage("Download error:"+"EA founded, copy canceled");
+			}
+		} catch (JcifsException e) {
+			e.printStackTrace();
+			sendLogMsg("E","Download error:",e.toString());
+			fileioThreadCtrl.setThreadMessage("Download error:"+e.toString());
+			result=false;
+			return false;
+		} catch (IOException e) {
+			e.printStackTrace();
+			sendLogMsg("E","Download error:",e.toString());
+			fileioThreadCtrl.setThreadMessage("Download error:"+e.toString());
+			result=false;
+			return false;
+		}
+		return result;
+	}
+
+	private boolean downloadRemoteFileBySftp(FileIoLinkParm fiop)  {
+		String fromUrl=fiop.getFromDirectory()+"/"+fiop.getFromName();
+		String toUrl=fiop.getToDirectory()+"/"+fiop.getToName();
+		SafFile3 tf ;
+		boolean result = false;
+		sendDebugLogMsg(1,"I","Download Remote file, from item=",fromUrl,", to item=",toUrl);
+		try {
+			SftpFile sf=new SftpFile(fromUrl, fiop.getFromUser(), fiop.getFromPass(), false);
+			makeLocalDirsByFilePath(toUrl);
+			result=true;
+			tf=new SafFile3(mContext, toUrl);
+			result= copyMoveFileRemoteToLocat(false, sf, tf, fromUrl, toUrl);//, "Downloading");
+//			if (!isFileDifferent(sf.getLastModified(), sf.getLength(), tf.lastModified(), tf.length())) {
+//				sendDebugLogMsg(1,"I","Download was cancelled because file does not changed.");
+//			} else {
+//				result= copyMoveFileRemoteToLocat(false, sf, tf, fromUrl, toUrl);//, "Downloading");
+//			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			sendLogMsg("E","Download error:",e.toString());
+			fileioThreadCtrl.setThreadMessage("Download error:"+e.toString());
+			result=false;
+			return false;
+		}
+		return result;
+	}
+
 	private static String mPrevProgMsg="";
 	private void sendMsgToProgDlg(final String log_msg) {
 		if (!mPrevProgMsg.equals(log_msg)) {
@@ -389,7 +458,7 @@ public class FileIO extends Thread {
 
 	public static boolean renameSafFile(SafFile3 from, SafFile3 to) {
 		boolean result=from.renameTo(to);
-		if (!from.getPath().startsWith(SafFile3.SAF_FILE_PRIMARY_STORAGE_PREFIX)) {
+		if (!from.getPath().startsWith(Environment.getExternalStorageDirectory().getPath())) {
 			if (!result && !from.exists() && to.exists()) {
 				result=true;
 			}
@@ -777,7 +846,7 @@ public class FileIO extends Thread {
         return result;
     }
 
-    private boolean copyMoveFileRemoteToLocat(boolean move, JcifsFile from_jcifs, SafFile3 to_saf, String fromUrl, String toUrl) {
+    private boolean copyMoveFileRemoteToLocat(boolean move, SftpFile from_sftp, SafFile3 to_saf, String fromUrl, String toUrl) {
         boolean result=false;
         String title=move?"Moving":"Copying";
         SafFile3 temp_out=null;
@@ -788,28 +857,29 @@ public class FileIO extends Thread {
                 File df=new File(tf.getParent());
                 if (!df.exists()) df.mkdirs();
                 temp_out.createNewFile();
-                copyFile(from_jcifs.getInputStream(), temp_out.getOutputStream(), from_jcifs.length(), title, from_jcifs.getName(), fromUrl, toUrl);
+
+                copyFile(from_sftp.getInputStream(), temp_out.getOutputStream(), from_sftp.getLength(), title, from_sftp.getName(), fromUrl, toUrl);
                 if (!fileioThreadCtrl.isEnabled()) {
                     temp_out.deleteIfExists();
                     result=false;
                 } else {
-                    tf.setLastModified(from_jcifs.getLastModified());
+                    tf.setLastModified(from_sftp.getLastModified());
                     to_saf.deleteIfExists();
                     result=temp_out.moveToWithRename(to_saf);
-                    if (move && result) from_jcifs.delete();
+                    if (move && result) from_sftp.delete();
 					scanMediaStoreLibraryFile(to_saf.getPath());
                 }
             } else {
                 temp_out=new SafFile3(mContext, toUrl+".tmp");
                 temp_out.createNewFile();
-                copyFile(from_jcifs.getInputStream(), temp_out.getOutputStream(), from_jcifs.length(), title, from_jcifs.getName(), fromUrl, toUrl);
+                copyFile(from_sftp.getInputStream(), temp_out.getOutputStream(), from_sftp.getLength(), title, from_sftp.getName(), fromUrl, toUrl);
                 if (!fileioThreadCtrl.isEnabled()) {
                     temp_out.deleteIfExists();
                     result=false;
                 } else {
                     to_saf.deleteIfExists();
 					result=renameSafFile(temp_out, to_saf);
-                    if (move && result) from_jcifs.delete();
+                    if (move && result) from_sftp.delete();
 					scanMediaStoreLibraryFile(to_saf.getPath());
                 }
             }
@@ -823,7 +893,53 @@ public class FileIO extends Thread {
         return result;
     }
 
-    private boolean copyMoveFileLocalToRemote(boolean move, SafFile3 from_saf, JcifsFile to_jcifs, String fromUrl, String toUrl) {
+	private boolean copyMoveFileRemoteToLocat(boolean move, JcifsFile from_jcifs, SafFile3 to_saf, String fromUrl, String toUrl) {
+		boolean result=false;
+		String title=move?"Moving":"Copying";
+		SafFile3 temp_out=null;
+		try {
+			if (to_saf.getAppDirectoryCache()!=null && Build.VERSION.SDK_INT>=24) {
+				temp_out=new SafFile3(mContext, to_saf.getAppDirectoryCache()+"/"+System.currentTimeMillis());//to_saf.getName());
+				File tf=new File(temp_out.getPath());
+				File df=new File(tf.getParent());
+				if (!df.exists()) df.mkdirs();
+				temp_out.createNewFile();
+				copyFile(from_jcifs.getInputStream(), temp_out.getOutputStream(), from_jcifs.length(), title, from_jcifs.getName(), fromUrl, toUrl);
+				if (!fileioThreadCtrl.isEnabled()) {
+					temp_out.deleteIfExists();
+					result=false;
+				} else {
+					tf.setLastModified(from_jcifs.getLastModified());
+					to_saf.deleteIfExists();
+					result=temp_out.moveToWithRename(to_saf);
+					if (move && result) from_jcifs.delete();
+					scanMediaStoreLibraryFile(to_saf.getPath());
+				}
+			} else {
+				temp_out=new SafFile3(mContext, toUrl+".tmp");
+				temp_out.createNewFile();
+				copyFile(from_jcifs.getInputStream(), temp_out.getOutputStream(), from_jcifs.length(), title, from_jcifs.getName(), fromUrl, toUrl);
+				if (!fileioThreadCtrl.isEnabled()) {
+					temp_out.deleteIfExists();
+					result=false;
+				} else {
+					to_saf.deleteIfExists();
+					result=renameSafFile(temp_out, to_saf);
+					if (move && result) from_jcifs.delete();
+					scanMediaStoreLibraryFile(to_saf.getPath());
+				}
+			}
+		} catch(Exception e) {
+			e.printStackTrace();
+			sendLogMsg("E","copyMoveFileRemoteToLocal error:",e.toString());
+			fileioThreadCtrl.setThreadMessage("copyMoveFileRemoteToLocal error:"+e.toString());
+			if (temp_out!=null) try {if (temp_out.exists()) temp_out.delete();} catch(Exception ex) {}
+			result=false;
+		}
+		return result;
+	}
+
+	private boolean copyMoveFileLocalToRemote(boolean move, SafFile3 from_saf, JcifsFile to_jcifs, String fromUrl, String toUrl) {
         boolean result=false;
         String title=move?"Moving":"Copying";
         JcifsFile temp_out=null;
@@ -925,50 +1041,14 @@ public class FileIO extends Thread {
 		return result;
     }
     
-    private boolean downloadRemoteFile(JcifsAuth smb_auth, String fromUrl, String toUrl)  {
-        JcifsFile hf,hfd;
-        SafFile3 tf ;
-        boolean result = false;
-        sendDebugLogMsg(1,"I","Download Remote file, from item=",fromUrl,", to item=",toUrl);
-		try {
-			hf = new JcifsFile(fromUrl ,smb_auth);
-            if (hf.getAttributes()<16384) { //no EA, copy was done
-                makeLocalDirsByFilePath(toUrl);
-                result=true;
-                tf=new SafFile3(mContext, toUrl);
-                if (!isFileDifferent(hf.getLastModified(), hf.length(), tf.lastModified(), tf.length())) {
-                    sendDebugLogMsg(1,"I","Download was cancelled because file does not changed.");
-                } else {
-                    result= copyMoveFileRemoteToLocat(false, hf, tf, fromUrl, toUrl);//, "Downloading");
-                }
-            } else {
-                result=false;
-                sendLogMsg("E","EA founded, copy canceled. path=",fromUrl);
-                fileioThreadCtrl.setThreadMessage("Download error:"+"EA founded, copy canceled");
-            }
-		} catch (JcifsException e) {
-			e.printStackTrace();
-			sendLogMsg("E","Download error:",e.toString());
-			fileioThreadCtrl.setThreadMessage("Download error:"+e.toString());
-			result=false;
-			return false;
-		} catch (IOException e) {
-			e.printStackTrace();
-			sendLogMsg("E","Download error:",e.toString());
-			fileioThreadCtrl.setThreadMessage("Download error:"+e.toString());
-			result=false;
-			return false;
-		}
-		return result;
-    }
-
     private boolean copyFile(InputStream bis, OutputStream bos, long fileBytes,
                                     String title_header, String file_name, String fromUrl, String toUrl) throws IOException, JcifsException {
         int n=0;
         long tot = 0;
         sendMsgToProgDlg(String.format(title_header+" %s %s%% completed.", file_name,0));
         byte[] io_buff=new byte[1024*1024*2];
-        while(( n = bis.read( io_buff)) > 0 ) {
+        long prev_prog=0;
+        while(( n = bis.read( io_buff, 0, io_buff.length)) > 0 ) {
             if (!fileioThreadCtrl.isEnabled()) {
                 bis.close();
                 bos.close();
@@ -976,8 +1056,13 @@ public class FileIO extends Thread {
             }
             bos.write(io_buff, 0, n );
             tot += n;
-            if (n<fileBytes)
-                sendMsgToProgDlg(String.format(title_header+" %s %s%% completed.", file_name, (tot*100)/fileBytes));
+            if (n<fileBytes) {
+            	long prog=(tot*100)/fileBytes;
+            	if (prev_prog!=prog) {
+            		sendMsgToProgDlg(String.format(title_header+" %s %s%% completed.", file_name, (tot*100)/fileBytes));
+            		prev_prog=prog;
+				}
+			}
         }
         sendMsgToProgDlg(String.format(title_header+" %s,  %s%% completed.",file_name, 100));
         bis.close();

@@ -78,10 +78,10 @@ public class GlobalParameter {
 
     public ArrayList<LocalStorage> localStorageList =new ArrayList<LocalStorage>();
 //    public String smbUser=null, smbPass=null;
-    public SmbServerConfig currentSmbServerConfig =null;
+    public RemoteServerConfig currentRemoteServerConfig =null;
     public ThemeColorList themeColorList;
 
-    public ArrayList<SmbServerConfig> smbConfigList =null;
+    public ArrayList<RemoteServerConfig> smbConfigList =null;
 
     public ISvcClient svcClient = null;
     public ServiceConnection svcConnection =null;

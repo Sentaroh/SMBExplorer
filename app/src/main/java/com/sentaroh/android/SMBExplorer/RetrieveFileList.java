@@ -58,10 +58,10 @@ public class RetrieveFileList extends Thread  {
 
 	private LogUtil mLog=null;
 
-    private SmbServerConfig mSmbServerConfig=null;
+    private RemoteServerConfig mRemoteServerConfig =null;
 
 	private int mSmbLevel =JcifsAuth.JCIFS_FILE_SMB211;
-	public RetrieveFileList(GlobalParameter gp, ThreadCtrl ac, String ru, List<String> d_list, SmbServerConfig sc, NotifyEvent ne) {
+	public RetrieveFileList(GlobalParameter gp, ThreadCtrl ac, String ru, List<String> d_list, RemoteServerConfig sc, NotifyEvent ne) {
 //		currContext=c;
 		mGp=gp;
 
@@ -75,12 +75,12 @@ public class RetrieveFileList extends Thread  {
 		
 		dir_list=d_list;
 
-        mSmbServerConfig=sc;
+        mRemoteServerConfig =sc;
 		
 		opCode=OPCD_EXISTS_CHECK; //check item is exists
 
-        if (sc.getSmbUser()!=null && !sc.getSmbUser().equals("")) tuser=sc.getSmbUser();
-        if (sc.getSmbPass()!=null && !sc.getSmbPass().equals("")) tpass=sc.getSmbPass();
+        if (sc.getUser()!=null && !sc.getUser().equals("")) tuser=sc.getUser();
+        if (sc.getPassword()!=null && !sc.getPassword().equals("")) tpass=sc.getPassword();
         mSmbLevel =Integer.parseInt(sc.getSmbLevel());
 	}
 
@@ -91,7 +91,7 @@ public class RetrieveFileList extends Thread  {
     private String tuser=null,tpass="";
 
     public RetrieveFileList(GlobalParameter gp,
-                            ThreadCtrl ac, String opcd, String ru, ArrayList<FileListItem> fl, SmbServerConfig sc, NotifyEvent ne) {
+                            ThreadCtrl ac, String opcd, String ru, ArrayList<FileListItem> fl, RemoteServerConfig sc, NotifyEvent ne) {
 		mGp=gp;
 		remoteFileList=fl;
 
@@ -103,12 +103,12 @@ public class RetrieveFileList extends Thread  {
 		notifyEvent=ne;
 		remoteUrl=ru;
 
-        mSmbServerConfig=sc;
+        mRemoteServerConfig =sc;
 
         opCode=opcd;
 
-        if (sc.getSmbUser()!=null && !sc.getSmbUser().equals("")) tuser=sc.getSmbUser();
-        if (sc.getSmbPass()!=null && !sc.getSmbPass().equals("")) tpass=sc.getSmbPass();
+        if (sc.getUser()!=null && !sc.getUser().equals("")) tuser=sc.getUser();
+        if (sc.getPassword()!=null && !sc.getPassword().equals("")) tpass=sc.getPassword();
         mSmbLevel =Integer.parseInt(sc.getSmbLevel());
 	}
 	
@@ -123,7 +123,7 @@ public class RetrieveFileList extends Thread  {
         Thread.currentThread().setUncaughtExceptionHandler(unCaughtExceptionHandler);
 
         if (mSmbLevel==JcifsAuth.JCIFS_FILE_SMB1) mJcifsAuth = new JcifsAuth(mSmbLevel, "", tuser, tpass);
-        else mJcifsAuth = new JcifsAuth(mSmbLevel, "", tuser, tpass, mSmbServerConfig.isSmbOptionIpcSigningEnforced(), mSmbServerConfig.isSmbOptionUseSMB2Negotiation());
+        else mJcifsAuth = new JcifsAuth(mSmbLevel, "", tuser, tpass, mRemoteServerConfig.isSmbOptionIpcSigningEnforced(), mRemoteServerConfig.isSmbOptionUseSMB2Negotiation());
 
 //        Log.v("","url="+remoteUrl);
 		String host_t1=remoteUrl.replace("smb://","").replaceAll("//", "/");
@@ -237,7 +237,7 @@ public class RetrieveFileList extends Thread  {
 						} catch (JcifsException e) {
                             mLog.addLogMsg("I","File ignored by exception: "+e.toString()+", "+ "Name="+fn);
 						}					
-						FileListItem fi=new FileListItem(
+						FileListItem fi=new FileListItem(FileListItem.SERVER_TYPE_SMB,
 								fn,
 								fl[i].isDirectory(),
 								0,
@@ -315,8 +315,8 @@ public class RetrieveFileList extends Thread  {
                                     "Path="+fl[i].getPath()+", "+
                                     "CanonicalPath="+fl[i].getCanonicalPath());
                         }
-                        FileListItem fi=new FileListItem(
-                                fn,
+                        FileListItem fi=new FileListItem(FileListItem.SERVER_TYPE_SMB,
+								fn,
                                 fl[i].isDirectory(),
                                 fl[i].length(),
                                 fl[i].getLastModified(),
@@ -328,7 +328,7 @@ public class RetrieveFileList extends Thread  {
                         fi.setSubDirItemCount(dirct);
                         fi.setHasExtendedAttr(has_ea);
                         rem_list.add(fi);
-                        mLog.addDebugMsg(1,"I","Filelist added: "+
+                        mLog.addDebugMsg(2,"I","Filelist added: "+
                                 "Name="+fn+", "+
                                 "isDirectory="+fl[i].isDirectory()+", "+
                                 "Length="+fl[i].length()+", "+
